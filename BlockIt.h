@@ -24,7 +24,7 @@ namespace ora {
     };
 
     // --------------------------------------------------------------------------------
-    class BlockIt: public BlockSource {
+    class BlockIt final : public BlockSource {
 
         FileHead fileHead{};
         RedoHead redoHead{};
@@ -43,7 +43,7 @@ namespace ora {
         void read_RedoHead();
 
     public:
-        explicit BlockIt(const std::string &path, size_t bufferCount = 256);
+        explicit BlockIt(const std::string &path, size_t bufferCount = 1);
 
         [[nodiscard]] const FileHead &getFileHead() const { return fileHead; }
         [[nodiscard]] const RedoHead &getRedoHead() const { return redoHead; }

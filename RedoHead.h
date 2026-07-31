@@ -12,7 +12,8 @@ namespace ora {
     /** 오라클 SCN (System Change Number) (64-bit) */
     struct SCN {
         uint32_t base{};  ///< SCN Base (하위 32비트, SCN_BASE / Minor)
-        uint32_t wrap{};  ///< SCN Wrap (상위 32비트, Major_High 16b + Major 16b)
+        uint16_t wrap{};  ///< SCN Wrap (상위 32비트, Major_High 16b + Major 16b)
+        uint16_t wrap_high{};  ///< SCN Wrap (상위 32비트, Major_High 16b + Major 16b)
     };
 
     inline uint64_t scn_to64(const SCN& scn) {
@@ -21,7 +22,10 @@ namespace ora {
 
     // SCN : 0x0000.00000000 (0)
     inline std::string toHex(const SCN& scn) {
-        return fmt::format("0x{:04x}.{:08x} ({})", scn.wrap, scn.base, scn_to64(scn));
+        if (scn.wrap_high == 0)
+            return fmt::format("0x{:04x}.{:08x} ({})", scn.wrap, scn.base, scn_to64(scn));
+
+        return fmt::format("0x{:04x}.{:04x}.{:08x} ({})", scn.wrap_high, scn.wrap, scn.base, scn_to64(scn));
     }
 
     /** 오라클 버전 */

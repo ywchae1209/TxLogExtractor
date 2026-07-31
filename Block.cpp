@@ -1,5 +1,6 @@
 #include "Block.h"
 #include "coral_decode.h"
+#include "coral_record.h"
 #include "coral_show.h"
 
 namespace ora {
@@ -49,61 +50,66 @@ namespace ora {
     std::optional<NextRecordOffset> calculate_next(
         const uint32_t offset,
         const uint32_t record_len,
-        const uint32_t block_sz = 512,
-        const uint16_t head_len = 16)
+        const uint32_t block_sz = 512)
     {
 
-        const uint32_t room = block_sz - head_len; // 512 - 16 = 496
+        const uint32_t room = block_sz - BLOCK_HEAD_LEN; // 512 - 16 = 496
         const uint32_t room0 = block_sz - offset;  // current room
 
         const int32_t needs = record_len - room0;
 
-        if (needs < 0) return  NextRecordOffset{record_len, 0, static_cast<uint16_t>(offset + record_len)};//std::nullopt;
-        if (needs == 0) return NextRecordOffset{record_len, 1, head_len};
+        if (needs < 0) return  NextRecordOffset{record_len, 0, static_cast<uint16_t>(offset + record_len)};
+        if (needs == 0) return NextRecordOffset{record_len, 1, BLOCK_HEAD_LEN};
 
         const uint32_t blocks = needs / room; // 몫
         const uint16_t remain = needs % room; // 나머지
 
         return (remain == 0)
-                   ? NextRecordOffset{record_len, blocks, head_len}
-                   : NextRecordOffset{record_len, blocks + 1, static_cast<uint16_t>(head_len + remain)};
+                   ? NextRecordOffset{record_len, blocks, BLOCK_HEAD_LEN}
+                   : NextRecordOffset{record_len, blocks + 1, static_cast<uint16_t>(BLOCK_HEAD_LEN + remain)};
     }
 
     std::vector<NextRecordOffset> next_offsets(
         const tcb::span<const char> view,
         const uint16_t offset0,
         const uint32_t block_sz,
-        const uint32_t head_len,
-        const bool isLittle) {
+        const bool isLittle,
+        const SCN& low,
+        const SCN& next ) {
 
         std::vector<NextRecordOffset> result;
 
         auto offset = offset0;
-        std::optional<uint32_t> len0 = coral::read_record_length(view, offset, isLittle);
+        std::optional<uint32_t> len0 = coral::read_record_length_with_validation(view, offset, isLittle, low, next);
 
         int limit = 0;
-        while (len0 && limit < 10) {
+        while (len0 && limit < 32) {
             if (*len0 == 0 ) break;
 
             limit++;
-            auto next = calculate_next(offset, *len0, block_sz, head_len);
-            if (!next) break;
+            auto n = calculate_next(offset, *len0, block_sz);
+            if (!n) break;
 
-            auto next_start = next.value();
+            auto next_start = n.value();
 
             result.push_back(next_start);
 
             if (next_start.skip_blocks > 0) break;
 
             offset = next_start.next_offset;
-            len0 = coral::read_record_length(view, offset, isLittle);
+            len0 = coral::read_record_length_with_validation(view, offset, isLittle, low, next);
 
         }
 
         return result;
     }
 
-    Block make_Block( std::vector<char> raw, const uint32_t block_sz, const bool isLittle, const uint32_t head_len) {
+    Block make_Block(
+        std::vector<char> raw,
+        const uint32_t block_sz,
+        const bool isLittle,
+        const SCN& low,
+        const SCN& next ) {
 
         const auto head = BlockHead_of(raw, isLittle);
 
@@ -111,9 +117,9 @@ namespace ora {
 
         block.raw = std::move(raw);
         block.view = tcb::span<const char>(block.raw);
-        block.payload = block.view.subspan(head_len);
+        block.payload = block.view.subspan(16);
         block.head = head;
-        block.offsets = next_offsets(block.view, head.offset, block_sz, head_len, isLittle);
+        block.offsets = next_offsets(block.view, head.offset, block_sz, isLittle, low, next);
 
         return block;
     }

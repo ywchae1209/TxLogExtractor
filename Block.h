@@ -4,8 +4,8 @@
 #include <iostream>
 #include <tcb/span.hpp>
 #include <range/v3/view/transform.hpp>
-#include "coral_decode.h"
 #include "coral_show.h"
+#include "RedoHead.h"
 
 namespace ora {
 
@@ -29,7 +29,7 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     struct NextRecordOffset {
-        uint64_t len;
+        uint64_t len;          // Record length from before offset to next_offset
         uint32_t skip_blocks;  // (0 == 현재 블록)
         uint16_t next_offset;  // 다음 레코드가 시작하는 블록 내 offset
     };
@@ -49,10 +49,9 @@ namespace ora {
         return fmt::format("[{}]", fmt::join(mapped, ", "));
     }
 
-
     // --------------------------------------------------------------------------------
     /** redo block head :: block's head in 2nd ~ fin blocks. */
-    constexpr int BLOCK_HEADER_LEN = 16;
+    constexpr int BLOCK_HEAD_LEN = 16;
 
     struct BlockHead {
         BHValid valid{};
@@ -73,12 +72,15 @@ namespace ora {
         std::vector<NextRecordOffset> offsets;
     };
 
+    const SCN SCN_lowest = SCN{0, 0, 0};
+    const SCN SCN_top = SCN{ .base = 0xFFFFFFFF, .wrap = 0xFFFF, .wrap_high = 0xFFFF };
 
     Block make_Block(
         std::vector<char> raw,
         uint32_t block_sz,
         bool isLittle,
-        const uint32_t head_len = 16 );
+        const SCN& low = SCN_lowest,
+        const SCN& next = SCN_top );
 
     // --------------------------------------------------------------------------------
     void show(const BlockHead &h, std::ostream &os = std::cout) noexcept;
