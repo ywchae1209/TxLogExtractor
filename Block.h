@@ -28,13 +28,13 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    struct NextRecordOffset {
-        uint64_t len;          // Record length from before offset to next_offset
+    struct RecordBound {
+        uint64_t len;          // Record length from beforer-offset to next_offset
         uint32_t skip_blocks;  // (0 == 현재 블록)
         uint16_t next_offset;  // 다음 레코드가 시작하는 블록 내 offset
     };
 
-    inline std::string to_string(const NextRecordOffset& p) {
+    inline std::string to_string(const RecordBound& p) {
         return fmt::format("{} :> +{}:@{}({})",
                            p.len,
                            p.skip_blocks,
@@ -42,7 +42,7 @@ namespace ora {
                            coral::toHex(p.next_offset));
     }
 
-    inline std::string to_string(const std::vector<NextRecordOffset>& offsets) {
+    inline std::string to_string(const std::vector<RecordBound>& offsets) {
         auto mapped = offsets
                       | ranges::views::transform([](auto &p) { return to_string(p); });
 
@@ -69,7 +69,7 @@ namespace ora {
         tcb::span<const char> view;
         tcb::span<const char> payload;
         BlockHead head;
-        std::vector<NextRecordOffset> offsets;
+        std::vector<RecordBound> bounds;
     };
 
     const SCN SCN_lowest = SCN{0, 0, 0};
@@ -86,7 +86,7 @@ namespace ora {
     void show(const BlockHead &h, std::ostream &os = std::cout) noexcept;
     void show(const BlockHead &h, std::string& suffix, std::ostream &os) noexcept ;
     inline void show(const Block &b, std::ostream &os = std::cout) noexcept {
-        auto suffix = to_string(b.offsets);
+        auto suffix = to_string(b.bounds);
         show(b.head, suffix, os);
     }
 }

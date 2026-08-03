@@ -47,7 +47,7 @@ namespace ora {
         return decode(*lo, isLittle);
     }
 
-    std::optional<NextRecordOffset> calculate_next(
+    std::optional<RecordBound> calculate_next(
         const uint32_t offset,
         const uint32_t record_len,
         const uint32_t block_sz = 512)
@@ -58,18 +58,18 @@ namespace ora {
 
         const int32_t needs = record_len - room0;
 
-        if (needs < 0) return  NextRecordOffset{record_len, 0, static_cast<uint16_t>(offset + record_len)};
-        if (needs == 0) return NextRecordOffset{record_len, 1, BLOCK_HEAD_LEN};
+        if (needs < 0) return  RecordBound{record_len, 0, static_cast<uint16_t>(offset + record_len)};
+        if (needs == 0) return RecordBound{record_len, 1, BLOCK_HEAD_LEN};
 
         const uint32_t blocks = needs / room; // 몫
         const uint16_t remain = needs % room; // 나머지
 
         return (remain == 0)
-                   ? NextRecordOffset{record_len, blocks, BLOCK_HEAD_LEN}
-                   : NextRecordOffset{record_len, blocks + 1, static_cast<uint16_t>(BLOCK_HEAD_LEN + remain)};
+                   ? RecordBound{record_len, blocks, BLOCK_HEAD_LEN}
+                   : RecordBound{record_len, blocks + 1, static_cast<uint16_t>(BLOCK_HEAD_LEN + remain)};
     }
 
-    std::vector<NextRecordOffset> next_offsets(
+    std::vector<RecordBound> next_offsets(
         const tcb::span<const char> view,
         const uint16_t offset0,
         const uint32_t block_sz,
@@ -77,7 +77,7 @@ namespace ora {
         const SCN& low,
         const SCN& next ) {
 
-        std::vector<NextRecordOffset> result;
+        std::vector<RecordBound> result;
 
         auto offset = offset0;
         std::optional<uint32_t> len0 = coral::read_record_length_with_validation(view, offset, isLittle, low, next);
@@ -119,7 +119,7 @@ namespace ora {
         block.view = tcb::span<const char>(block.raw);
         block.payload = block.view.subspan(16);
         block.head = head;
-        block.offsets = next_offsets(block.view, head.offset, block_sz, isLittle, low, next);
+        block.bounds = next_offsets(block.view, head.offset, block_sz, isLittle, low, next);
 
         return block;
     }

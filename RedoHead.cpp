@@ -8,12 +8,6 @@
 namespace ora {
 
 #pragma pack(push, 1)
-    struct SCN_lo{
-        uint32_t minor;            // base
-        uint32_t major;            // wrap
-        // uint16_t major_high;       // wrap_high. (before ora.11g = 0)
-    };
-
     struct SourceInfo_lo{
         uint32_t software_ver;     //
         uint32_t compat_ver;       //
@@ -77,21 +71,6 @@ namespace ora {
     };
 
 #pragma pack(pop)
-    SCN decode_SCN(const SCN_lo& raw, const bool isLittle) {
-
-        const uint32_t minor = coral::decode(raw.minor, isLittle);
-        const uint32_t major = coral::decode(raw.major, isLittle);
-        const uint16_t upper = major >> 16;
-        const uint16_t lower = major & 0xFFFF;
-
-        SCN o = {};
-        o.base = minor;
-        o.wrap = upper;
-        o.wrap_high = lower;
-
-        return o;
-    }
-
     OraVer decode_OraVer(const uint32_t n, const bool isLittle) {
 
         const uint32_t o = coral::decode(n, isLittle);

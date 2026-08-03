@@ -54,5 +54,25 @@ namespace coral {
             decode<uint64_t>(static_cast<const uint64_t &>(v), isLittle)
         );
     }
+
+    inline bool is_fill_pattern(const uint32_t val) noexcept {
+        uint32_t byte_repeated = (val & 0xFF) * 0x01010101U;
+        return val == byte_repeated;
+    }
+
+    /** * 오라클 커널 정크 패딩 감지 (ASCII 0x20 ~ 0x7E 범위의 반복 문자)
+     * 'AAAA', 'BBBB', 'CCCC', 'DDDD', 'FFFF' ... */
+    inline bool is_ascii_filler(const uint32_t val) noexcept {
+        const uint8_t b = static_cast<uint8_t>(val & 0xFF);
+        return (b >= 0x20 && b <= 0x7E) && is_fill_pattern(val);
+    }
+
+    /** * Fill 패턴일 경우 0으로 치환 */
+    inline uint32_t sanitize_filler(const int32_t val) noexcept {
+        if (is_ascii_filler(val)) {
+            return 0;
+        }
+        return val;
+    }
 }
 

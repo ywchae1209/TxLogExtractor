@@ -5,6 +5,7 @@
 
 #include "coral_decode.h"
 #include "coral_show.h"
+
 #include "RedoHead.h"
 
 namespace coral {
@@ -40,6 +41,7 @@ namespace coral {
 
         return decode(value, isLittle);
     }
+
     inline std::optional<uint8_t> read_u8(
         const tcb::span<const char> s,
         const size_t offset) noexcept {
@@ -64,6 +66,10 @@ namespace coral {
         KCR_timeWrap = 0x40, // Timewarp
         KCR_raw   = 0x80  // Raw Record
     };
+
+    [[nodiscard]] inline bool dependBit_on(uint8_t vld) {
+        return (vld & KCR_depend) == KCR_depend;
+    }
 
     [[nodiscard]] inline std::string vld_string(uint8_t vld) {
 

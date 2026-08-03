@@ -3,6 +3,7 @@
 
 #include "BlockIt.h"
 #include "coral_show.h"
+#include "RecordHead.h"
 
 namespace ora {
 
@@ -19,21 +20,20 @@ namespace ora {
         uint32_t last_offset{0};
         uint64_t len;
         std::vector<char> raw;
+        RecordHead head;
     };
 
     inline void show(Record& r, std::ostream &os = std::cout) noexcept {
 
         using coral::toHex;
 
-        fmt::println(os,
-            "Record {} #{} @{}({})\t~\t#{} @{}({})\t{} bytes",
-            r.rba.log_seq_no,
-            r.rba.block_no,
-            r.rba.offset, toHex(r.rba.offset),
-            r.last_block_no,
-            r.last_offset, toHex(r.last_offset),
+        fmt::print(os,
+            "R {}.@{}\t~\t{}.@{}\t{}\t",
+            r.rba.block_no, r.rba.offset,
+            r.last_block_no, r.last_offset,
             r.len
         );
+        show(r.head); // << error
     };
 
     // ================================================================================
@@ -43,12 +43,12 @@ namespace ora {
         virtual std::optional<Record> getNext() = 0;
     };
 
-
     // ================================================================================
     class DefaultRecordSource : public RecordSource {
 
         std::unique_ptr<BlockSource> block_source;
         std::deque<Record> out_buffer;
+        std::optional<Block> last_block{std::nullopt};
 
         Block getOrThrow(std::string_view context = "fill_Records");
         int fill_Records();

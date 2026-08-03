@@ -81,7 +81,7 @@ namespace ora {
                 return std::nullopt;
         }
         auto b = buf_drain.front();
-        show(b);
+        // show(b);
         buf_drain.pop_front();
         return b;
     }

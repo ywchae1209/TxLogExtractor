@@ -19,6 +19,9 @@ namespace ora {
     // --------------------------------------------------------------------------------
     class BlockSource {
     public :
+        virtual bool isLittleEndian() = 0;
+        virtual size_t getBlockSize() = 0;
+
         virtual ~BlockSource() = default;
         virtual std::optional<Block> getNext() = 0;
     };
@@ -43,6 +46,9 @@ namespace ora {
         void read_RedoHead();
 
     public:
+        bool isLittleEndian() override { return fileHead.isLittle; }
+        size_t getBlockSize() override { return fileHead.block_sz; }
+
         explicit BlockIt(const std::string &path, size_t bufferCount = 1);
 
         [[nodiscard]] const FileHead &getFileHead() const { return fileHead; }
