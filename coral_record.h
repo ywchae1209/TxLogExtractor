@@ -56,15 +56,16 @@ namespace coral {
 
     // from limited source.
     enum VldFlags : uint8_t {
-        KCR_void  = 0x00, // Invalid / Padding
-        KCR_valid = 0x01, // Valid record
-        KCR_commit = 0x02, // Commit SCN
-        KCR_depend = 0x04, // Dependent SCN
-        KCR_newMark = 0x08, // New SCN mark
-        KCR_oldMark = 0x10, // Old SCN mark
-        KCR_gno   = 0x20, // Group/Thread
-        KCR_timeWrap = 0x40, // Timewarp
-        KCR_raw   = 0x80  // Raw Record
+        KCR_void  = 0x00,       // Invalid
+
+        KCR_valid = 0x01,       // Valid record
+        KCR_commit = 0x02,      // Commit SCN
+        KCR_depend = 0x04,      // Dependent SCN
+        KCR_newMark = 0x08,     // New SCN mark
+        KCR_oldMark = 0x10,     // Old SCN mark
+        KCR_gno   = 0x20,       // Group/Thread
+        KCR_timeWrap = 0x40,    // Timewarp
+        KCR_raw   = 0x80        // Raw Record
     };
 
     [[nodiscard]] inline bool dependBit_on(uint8_t vld) {
@@ -182,7 +183,6 @@ namespace coral {
 
         return result;
     }
-    // --------------------------------------------------------------------------------
 
     // --------------------------------------------------------------------------------
     inline std::optional<uint32_t> read_record_length_with_validation(
@@ -214,12 +214,8 @@ namespace coral {
                 low.wrap <= *wrap && *wrap <= next.wrap &&
                 low.base <= *base && *base <= next.base;
         if (!ok) {
-            // fmt::println("validate : {}.{} ? {} ~ {}", toHex(*wrap), toHex(*base, false), toHex(low), toHex(next));
             return std::nullopt;
         }
-
-        // const auto foo = read_u8(view, offset + 5);
-        // fmt::println("vld : {} \t foo : {}", vld_string(*vld),foo_string(*foo));
 
         return *len;
     }

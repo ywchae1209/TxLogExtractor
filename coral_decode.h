@@ -1,10 +1,9 @@
 #pragma once
 
+// depend on glibc
 #include <endian.h>   // leXXtoh, beXXtoh
 #include <byteswap.h> // bswap16, bswap32, bswap64
 
-
-// depend on glibc
 namespace coral {
     template<typename T>
     T decode(const T &value, bool isLittle);
@@ -56,18 +55,18 @@ namespace coral {
     }
 
     inline bool is_fill_pattern(const uint32_t val) noexcept {
-        uint32_t byte_repeated = (val & 0xFF) * 0x01010101U;
-        return val == byte_repeated;
+        const uint32_t pattern = (val & 0xFF) * 0x01010101U;
+        return val == pattern;
     }
 
-    /** * 오라클 커널 정크 패딩 감지 (ASCII 0x20 ~ 0x7E 범위의 반복 문자)
+    /** Fill pattern(오라클 정크 패딩) (ASCII 0x20 ~ 0x7E 범위의 반복 문자)
      * 'AAAA', 'BBBB', 'CCCC', 'DDDD', 'FFFF' ... */
     inline bool is_ascii_filler(const uint32_t val) noexcept {
         const uint8_t b = static_cast<uint8_t>(val & 0xFF);
         return (b >= 0x20 && b <= 0x7E) && is_fill_pattern(val);
     }
 
-    /** * Fill 패턴일 경우 0으로 치환 */
+    /** * Fill pattern */
     inline uint32_t sanitize_filler(const int32_t val) noexcept {
         if (is_ascii_filler(val)) {
             return 0;

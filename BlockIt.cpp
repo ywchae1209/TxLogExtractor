@@ -1,23 +1,72 @@
 #include "BlockIt.h"
+#include "coral_result.h"
 
 namespace ora {
 
-    using ora::FileHead, ora::FileHead_of;
-    using ora::RedoHead, ora::RedoHead_of;
-    using ora::BlockHead, ora::BlockHead_of, ora::Block;
+    using ora::FileHead;
+    using ora::RedoHead;
+    using ora::BlockHead, ora::Block;
+    using coral::Ok_of, coral::Err_of, coral::Result;
 
-    BlockIt::BlockIt(const std::string &path, const size_t len)
-        : file(path, std::ios::binary), len_drain(len)
-    {
-        if (!file) throw std::runtime_error("Cannot open file: " + path);
-        read_FileHead();
-        read_RedoHead();
+    static Result<FileHead> read_FileHead(std::ifstream& in) {
+
+        std::vector<char> buf(256);
+
+        in.read(buf.data(), buf.size());
+
+        if (in.gcount() != 256)
+            return Err_of<FileHead>( "[read_FileHead] Fail to read 256 bytes, but " + std::to_string(in.gcount()) );
+
+        auto h = FileHead_of(buf);
+        if (const auto e = h.errString(); e.has_value())
+            return Err_of<FileHead>( "[read_FileHead] Invalid File-Head: " + *e);
+
+        in.seekg(h.block_sz - 256 , std::ios::cur);
+
+        return Ok_of(std::move(h));  // move
     }
 
-    void BlockIt::validate(Block& b) const noexcept {
-        if (b.head.log_seq_no != log_seq_no) {
-            b.head.valid = BHValid::Log_sqn_mismatch;
-        }
+    static Result<Block> read_RedoHeadBlock(std::ifstream& in, const FileHead& fh) {
+        std::vector<char> buf(fh.block_sz);
+
+        in.read(buf.data(), fh.block_sz);
+        if (in.gcount() != fh.block_sz)
+            return Err_of<Block>("[read_RedoHead] Fail to read block_sz,  but " + std::to_string(in.gcount()) );
+
+        auto b = Block_of(buf, fh.block_sz, fh.isLittle);
+
+        return Ok_of(std::move(b));
+    }
+
+    static Result<RedoHead> read_RedoHead(std::ifstream& in, const Block& b, const FileHead& fh) {
+        auto rh = RedoHead_of(b.payload, fh.isLittle);
+
+        if (!rh.isOk() )
+            return Err_of<RedoHead> ("[read_RedoHead] Invalid Redo-Head: " + to_string(rh.valid));
+
+        return Ok_of(std::move(rh));
+    }
+
+    BlockIt::BlockIt(const std::string &path, const bool showBlock, const size_t buffer_sz)
+    :out_buffer_sz { buffer_sz}, showBlock(showBlock)
+    {
+        auto f = std::ifstream(path, std::ios::binary);
+        if (!f) throw std::runtime_error("Cannot open file: " + path);
+
+        auto fh = read_FileHead(f);
+        if (!fh.ok()) throw std::runtime_error(fh.error);
+
+        auto rb = read_RedoHeadBlock(f, fh.get());
+        if (!rb.ok()) throw std::runtime_error(rb.error);
+
+        auto rh = read_RedoHead(f, rb.get(), fh.get());
+        if (!rh.ok()) throw std::runtime_error(rh.error);
+
+        // ----------------------------------------
+        file = std::move(f);
+        log_seq_no = rb.get().head.log_seq_no;
+        fileHead = std::move(fh.get());
+        redoHead = std::move(rh.get());
     }
 
     void BlockIt::drain() {
@@ -25,64 +74,36 @@ namespace ora {
         const auto low = redoHead.writeInfo.low_scn;
         const auto top = redoHead.writeInfo.next_scn;
 
-        buf_drain.clear();
-        for (size_t i = 0; i < len_drain && file; ++i) {
-            file.read(buf.data(), block_sz);
+        const auto block_sz = fileHead.block_sz;
 
-            if (file.gcount() < block_sz) break;
+        read_buf.resize(block_sz);
 
-            auto b = make_Block(buf, block_sz, fileHead.isLittle, low, top);
-            validate(b);
+        for (auto i = 0; i < out_buffer_sz && file; ++i) {
+            file.read(read_buf.data(), block_sz);
 
-            if (b.head.valid != BHValid::Ok)
+            if (file.gcount() < block_sz)
+                break; // exception. this must not happen
+
+            auto b = Block_of(read_buf, block_sz, fileHead.isLittle, low, top);
+
+            if (b.head.log_seq_no != this->log_seq_no)
                 break;
 
-            buf_drain.push_back(b);
-        }
-    }
-
-    void BlockIt::read_FileHead() {
-
-        buf.resize(256);
-        file.read(buf.data(), static_cast<std::streamsize>(buf.size()));
-
-        fileHead = FileHead_of(buf);
-        if (fileHead.valid != FHValid::Ok) {
-            throw std::runtime_error("Invalid file header: " + to_string(fileHead.valid));
-        }
-
-        block_sz = static_cast<std::streamsize>(fileHead.block_sz);
-        if (block_sz < 256) throw std::runtime_error("Block size must be >= 256");
-
-        buf.resize(block_sz);
-        file.seekg(block_sz, std::ios::beg);
-    }
-
-    void BlockIt::read_RedoHead() {
-        buf.resize(block_sz);
-
-        file.read(buf.data(), block_sz);
-        if (file.gcount() < block_sz) throw std::runtime_error("Failed to read Redo Header block");
-
-        const auto b = make_Block(buf, block_sz, fileHead.isLittle);
-        show(b.head);
-        log_seq_no = b.head.log_seq_no;
-
-        redoHead = RedoHead_of(b.payload, fileHead.isLittle);
-        if (redoHead.valid != RHValid::Ok) {
-            throw std::runtime_error("Invalid redo header: " + to_string(redoHead.valid));
+            out_buffer.push_back(b);
         }
     }
 
     std::optional<Block> BlockIt::getNext() {
-        if (buf_drain.empty()) {
+        if (out_buffer.empty()) {
             drain();
-            if (buf_drain.empty())
+            if (out_buffer.empty())
                 return std::nullopt;
         }
-        auto b = buf_drain.front();
-        // show(b);
-        buf_drain.pop_front();
+        auto b = out_buffer.front();
+
+        if (showBlock)
+            show(b);
+        out_buffer.pop_front();
         return b;
     }
 }

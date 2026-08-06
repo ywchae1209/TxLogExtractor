@@ -5,6 +5,8 @@
 
 namespace ora {
 
+    constexpr auto BLOCK_HEAD_LEN = 16;
+
 #pragma pack(push, 1)
     struct BlockHead_lo {
         uint8_t signature[4];   // signature = Block Type 0x2201
@@ -15,7 +17,7 @@ namespace ora {
     };
 #pragma pack(pop)
 
-    BlockHead decode(const BlockHead_lo &raw, const bool isLittle) noexcept {
+    static BlockHead decode(const BlockHead_lo &raw, const bool isLittle) noexcept {
 
         const uint16_t offset = coral::decode(raw.offset0, isLittle) & 0x7fff;
 
@@ -39,7 +41,7 @@ namespace ora {
         return h;
     }
 
-    BlockHead BlockHead_of(const tcb::span<const char> &raw, const bool isLittle) noexcept {
+    static BlockHead BlockHead_of(const tcb::span<const char> &raw, const bool isLittle) noexcept {
         if (raw.size() < sizeof(BlockHead_lo))
             return BlockHead{ .valid = BHValid::Empty};
 
@@ -47,29 +49,31 @@ namespace ora {
         return decode(*lo, isLittle);
     }
 
-    std::optional<RecordBound> calculate_next(
+    // calculate_next(380, 628, 512 ) ==> should-be { 628, 2, 16 }
+    // calculate_next(380, 116, 512 ) ==> should-be { 628, 1, 16 }
+    static std::optional<RecordBound> calculate_next(
         const uint32_t offset,
         const uint32_t record_len,
         const uint32_t block_sz = 512)
     {
 
-        const uint32_t room = block_sz - BLOCK_HEAD_LEN; // 512 - 16 = 496
+        const uint32_t room  = block_sz - 16;      // 512 - 16 = 496
         const uint32_t room0 = block_sz - offset;  // current room
 
         const int32_t needs = record_len - room0;
 
-        if (needs < 0) return  RecordBound{record_len, 0, static_cast<uint16_t>(offset + record_len)};
-        if (needs == 0) return RecordBound{record_len, 1, BLOCK_HEAD_LEN};
+        if (needs < 0 ) return RecordBound{record_len, 0, static_cast<uint16_t>(offset + record_len)};
+        if (needs == 0) return RecordBound{record_len, 1, 16};
 
-        const uint32_t blocks = needs / room; // 몫
-        const uint16_t remain = needs % room; // 나머지
+        const uint32_t blocks = (needs / room) + 1; // 몫
+        const uint16_t remain = needs % room;       // 나머지
 
         return (remain == 0)
-                   ? RecordBound{record_len, blocks, BLOCK_HEAD_LEN}
-                   : RecordBound{record_len, blocks + 1, static_cast<uint16_t>(BLOCK_HEAD_LEN + remain)};
+                   ? RecordBound{record_len, blocks, 16}
+                   : RecordBound{record_len, blocks, static_cast<uint16_t>(16 + remain)};
     }
 
-    std::vector<RecordBound> next_offsets(
+    static std::vector<RecordBound> calculate_bounds(
         const tcb::span<const char> view,
         const uint16_t offset0,
         const uint32_t block_sz,
@@ -90,13 +94,13 @@ namespace ora {
             auto n = calculate_next(offset, *len0, block_sz);
             if (!n) break;
 
-            auto next_start = n.value();
+            auto bound = n.value();
 
-            result.push_back(next_start);
+            result.push_back(bound);
 
-            if (next_start.skip_blocks > 0) break;
+            if (bound.next_blocks > 0) break;
 
-            offset = next_start.next_offset;
+            offset = bound.next_offset;
             len0 = coral::read_record_length_with_validation(view, offset, isLittle, low, next);
 
         }
@@ -104,7 +108,7 @@ namespace ora {
         return result;
     }
 
-    Block make_Block(
+    Block Block_of(
         std::vector<char> raw,
         const uint32_t block_sz,
         const bool isLittle,
@@ -119,31 +123,8 @@ namespace ora {
         block.view = tcb::span<const char>(block.raw);
         block.payload = block.view.subspan(16);
         block.head = head;
-        block.bounds = next_offsets(block.view, head.offset, block_sz, isLittle, low, next);
+        block.bounds = calculate_bounds(block.view, head.offset, block_sz, isLittle, low, next);
 
         return block;
     }
-
-    void show(const BlockHead &h, std::string& suffix, std::ostream &os) noexcept {
-
-        using coral::toHex;
-
-        fmt::print(os,
-            "#{}\tLSQN {}({})\tSIG:{} offset: {} ({}) {} {}\n",
-            h.block_no,
-            h.log_seq_no, toHex(h.log_seq_no),
-            toHex(h.signature),
-            toHex(h.offset), h.offset,
-            h.valid == BHValid::Ok ? "" : to_string(h.valid), suffix
-        );
-    }
-
-    void show(const BlockHead &h, std::ostream &os) noexcept{
-        using coral::toHex;
-
-        std::string empty = "";
-        show(h, empty, os);
-    }
-
-    // --------------------------------------------------------------------------------
 }

@@ -7,6 +7,7 @@ add_executable(TxLogExtractor
         main.cpp
         FileHead.cpp
         RedoHead.cpp
+        RecordHead.cpp
         Block.cpp
         BlockIt.cpp
         RecordSource.cpp

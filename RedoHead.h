@@ -13,16 +13,15 @@ namespace ora {
 #pragma pack(push, 1)
     struct SCN_lo{
         uint32_t minor;  // base
-        uint32_t major;  // wrap
-        // uint16_t major_high;       // wrap_high. (before ora.11g = 0)
+        uint32_t major;  // wrap ~ wrap_high
     };
 #pragma pack(pop)
 
     /** 오라클 SCN (System Change Number) (64-bit) */
     struct SCN {
-        uint32_t base{};        ///< SCN Base (하위 32비트, SCN_BASE / Minor)
-        uint16_t wrap{};        ///< SCN Wrap (상위 32비트, Major_High 16b + Major 16b)
-        uint16_t wrap_high{};   ///< SCN Wrap (상위 32비트, Major_High 16b + Major 16b)
+        uint32_t base{};        ///< SCN Base
+        uint16_t wrap{};        ///< SCN Wrap
+        uint16_t wrap_high{};   ///< SCN Wrap_High
     };
 
     inline SCN decode_SCN(const SCN_lo& raw, const bool isLittle) {
@@ -42,6 +41,7 @@ namespace ora {
     }
 
     inline uint64_t scn_to64(const SCN& scn) {
+        // drop wrap_high
         return (static_cast<uint64_t>(scn.wrap) << 32) | scn.base;
     }
 
@@ -134,7 +134,7 @@ namespace ora {
         EpochMismatch
     };
 
-    inline std::string to_string(RHValid val) noexcept {
+    inline std::string to_string(const RHValid& val) noexcept {
         switch (val) {
             case RHValid::Ok:               return "Ok";
             case RHValid::Empty:            return "Empty";
@@ -159,6 +159,8 @@ namespace ora {
         ThreadState threadState{};
         FileState   fileState{};
         TDEKeyInfo  keyInfo{};
+
+        bool isOk() const { return valid == RHValid::Ok; }
     };
 
     RedoHead RedoHead_of(const tcb::span<const char> &raw, bool isLittle);

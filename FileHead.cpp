@@ -1,8 +1,7 @@
-#include <iostream>
-#include "FileHead.h"
-
 #include <vector>
+#include <optional>
 
+#include "FileHead.h"
 #include "coral_decode.h"
 
 namespace ora {
@@ -23,16 +22,13 @@ namespace ora {
     };
     #pragma pack(pop)
 
-    inline FHValid validate(const FileHead& fh) {
+    static FHValid validate(const FileHead& fh) noexcept {
 
-        // 1. File Type
-        if (fh.file_type != 0x22 &&
-            fh.file_type != 0xA2 &&
-            fh.file_type != 0xC2) {
+        if ( fh.file_type.isUnknown())
             return FHValid::InvalidFileType;
-        }
 
-        // 2. Block Size
+        if (fh.block_sz< 256) return FHValid::InvalidBlockSize;
+
         switch(fh.block_sz) {
             case 512:
             case 1024:
@@ -48,26 +44,30 @@ namespace ora {
         return FHValid::Ok;
     }
 
-    FileHead decode(const FileHead_lo& raw) {
+    static std::optional<bool> isLittleEndian(const uint8_t (&bytes)[4] ) {
 
-        FileHead o{};
-        auto bytes= raw.endian_magic;
-        if ( bytes[0] == 0x7a &&
-             bytes[1] == 0x7b &&
-             bytes[2] == 0x7c &&
-             bytes[3] == 0x7d) {
-            o.isLittle = false;
-        } else if (
-            bytes[0] == 0x7d &&
-            bytes[1] == 0x7c &&
-            bytes[2] == 0x7b &&
-            bytes[3] == 0x7a ) {
-            o.isLittle = true;
-        } else
+        if (bytes[0] == 0x7a && bytes[1] == 0x7b &&
+            bytes[2] == 0x7c && bytes[3] == 0x7d)
+            return false;
+
+        if ( bytes[0] == 0x7d && bytes[1] == 0x7c &&
+            bytes[2] == 0x7b && bytes[3] == 0x7a)
+            return true;
+
+        return std::nullopt;
+    }
+
+    static FileHead decode(const FileHead_lo &raw) noexcept {
+
+        const auto mayLittle = isLittleEndian(raw.endian_magic);
+
+        if (!mayLittle.has_value())
             return FileHead{FHValid::InvalidEndian};
 
-        o.file_type    = decode(raw.fileType, o.isLittle);
-        o.block_sz     = decode(raw.block_sz, o.isLittle);
+        FileHead o;
+        o.isLittle  = mayLittle.value();
+        o.file_type = FileType{decode(raw.fileType, o.isLittle)};
+        o.block_sz  = decode(raw.block_sz, o.isLittle);
         o.total_blocks = decode(raw.total_blocks, o.isLittle);
 
         o.valid = validate(o);
@@ -75,35 +75,12 @@ namespace ora {
         return o;
     }
 
-    FileHead FileHead_of(const std::vector<char> &raw) {
+    FileHead FileHead_of(const std::vector<char> &raw) noexcept{
         if (raw.size() < sizeof(FileHead_lo))
             return FileHead{FHValid::TooShort};
 
         const auto lo = reinterpret_cast<const FileHead_lo *>(raw.data());
 
         return decode(*lo);
-    }
-
-    void show(const FileHead& h, std::ostream &os) {
-
-        using coral::toHex;
-
-        fmt::print(os,
-            "=================================================================\n"
-            "                    ORACLE REDO FILE HEADER INFO                 \n"
-            "=================================================================\n"
-            "[ Validation Status ] : {}\n\n"
-            "  Type      : {}\n"
-            "  BlockSz   : {}\n"
-            "  BlockCount: {}\n"
-            "  isLittle  : {}\n"
-            "  type      : {}\n",
-            to_string(h.valid),
-            toHex(h.file_type),
-            h.block_sz,
-            h.total_blocks,
-            h.isLittle,
-            fileTypeOr(h.file_type)
-        );
     }
 }
