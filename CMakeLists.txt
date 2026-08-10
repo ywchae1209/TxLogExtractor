@@ -4,13 +4,14 @@ project(TxLogExtractor)
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(TxLogExtractor
-        main.cpp
-        FileHead.cpp
-        RedoHead.cpp
-        RecordHead.cpp
-        Block.cpp
-        BlockIt.cpp
-        RecordSource.cpp
+        src/main.cpp
+        src/FileHead.cpp
+        src/RedoHead.cpp
+        src/RecordHead.cpp
+        src/Block.cpp
+        src/BlockIt.cpp
+        src/RecordSource.cpp
+        src/OpCodes.cpp
 )
 
 ################################################################################
