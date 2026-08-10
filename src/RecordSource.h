@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
 
-#include "BlockIt.h"
+#include "BlockSource.h"
 #include "coral_show.h"
 #include "OpCodes.h"
 #include "RecordHead.h"
@@ -42,11 +42,13 @@ namespace ora {
         const auto body = view.subspan(r.head.offset);
         const auto layer = body[0];
         const auto code = body[1];
-        const auto desc = ora::opCode_string(layer, code);
+        const auto desc = opCode_string(layer, code);
+        constexpr auto Rev_St = "\033[7m";
+        constexpr auto Rev_End = "\033[27m";
 
         if (showDump) {
             coral::show_HexDump(view.subspan(0, r.head.offset));
-            fmt::println("  -- {}", desc);
+            fmt::println("{}  -- {}{}", Rev_St, desc, Rev_End);
             coral::show_HexDump(view.subspan(r.head.offset));
         }
     }

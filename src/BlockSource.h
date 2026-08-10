@@ -24,14 +24,13 @@ namespace ora {
     };
 
     // --------------------------------------------------------------------------------
-    class BlockIt final : public BlockSource {
+    class FileBlockSource final : public BlockSource {
 
         FileHead fileHead{};
         RedoHead redoHead{};
         uint32_t log_seq_no{}; // NOTE :: redoHead->log-file's seq
 
         bool showBlock;
-        bool showDump;
 
         size_t out_buffer_sz;
 
@@ -46,7 +45,7 @@ namespace ora {
         bool isLittleEndian() override { return fileHead.isLittle; }
         uint16_t get_Block_sz() override { return fileHead.block_sz; }
 
-        explicit BlockIt(const std::string &path, bool showBlock = true, size_t buffer_sz = 1);
+        explicit FileBlockSource(const std::string &path, bool showBlock = true, size_t buffer_sz = 1);
 
         [[nodiscard]] const FileHead &getFileHead() const { return fileHead; }
         [[nodiscard]] const RedoHead &getRedoHead() const { return redoHead; }

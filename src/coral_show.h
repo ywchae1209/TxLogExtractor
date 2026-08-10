@@ -69,48 +69,47 @@ namespace coral {
             }
         }
 
-        if ((raw.size() % 2 == 1) && n < max_groups) {
-            uint8_t last = static_cast<uint8_t>(raw.back());
+        bool odd_processed = false;
+        if (raw.size() % 2 == 1 && n < max_groups) {
+            const uint8_t last = static_cast<uint8_t>(raw.back());
 
             std::cout << colors[n & (colors_sz - 1)];
             std::cout.write(hex_lut[last], 2);
             std::cout.write(reset_color, 5);
+            odd_processed = true;
         }
-
-        std::cout.put('\n');
+        if ((n & 7) != 0 || odd_processed) {
+            std::cout.put('\n');
+        }
     }
 
 
     // bytes
-    inline std::string toHex(const uint8_t* data, size_t len) {
+    inline std::string toHex(const uint8_t* data, const size_t len) {
         return fmt::format("{:02x}", fmt::join(data, data + len, ""));
     }
 
-    // byte-container :: std::string_view, std::vector...
+    // byte container == std::string_view, std::vector...
     template <typename Container>
-    inline std::string toHex(const Container& container, bool with_prefix = true) {
+    std::string toHex(const Container& container, bool with_prefix = true) {
         return with_prefix
                    ? fmt::format("0x{:02x}", fmt::join(container, ""))
                    : fmt::format("{:02x}", fmt::join(container, ""));
     }
 
-    // uint64_t
-    inline std::string toHex(uint64_t val, bool with_prefix = true) {
+    inline std::string toHex(uint64_t val, const bool with_prefix = true) {
         return with_prefix ? fmt::format("0x{:016x}", val) : fmt::format("{:016x}", val);
     }
 
-    // uint32_t
-    inline std::string toHex(uint32_t val, bool with_prefix = true) {
+    inline std::string toHex(uint32_t val, const bool with_prefix = true) {
         return with_prefix ? fmt::format("0x{:08x}", val) : fmt::format("{:08x}", val);
     }
 
-    // uint16_t
-    inline std::string toHex(uint16_t val, bool with_prefix = true) {
+    inline std::string toHex(uint16_t val, const bool with_prefix = true) {
         return with_prefix ? fmt::format("0x{:04x}", val) : fmt::format("{:04x}", val);
     }
 
-    // uint8_t
-    inline std::string toHex(uint8_t val, bool with_prefix = true) {
-        return with_prefix ? fmt::format("0x{:02x}", +val) : fmt::format("{:02x}", +val);
+    inline std::string toHex(uint8_t val, const bool with_prefix = true) {
+        return with_prefix ? fmt::format("0x{:02x}", val) : fmt::format("{:02x}", val);
     }
 }

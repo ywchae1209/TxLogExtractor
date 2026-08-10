@@ -9,7 +9,7 @@ add_executable(TxLogExtractor
         src/RedoHead.cpp
         src/RecordHead.cpp
         src/Block.cpp
-        src/BlockIt.cpp
+        src/BlockSource.cpp
         src/RecordSource.cpp
         src/OpCodes.cpp
 )

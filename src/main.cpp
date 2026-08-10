@@ -2,29 +2,33 @@
 #include <iostream>
 #include <string>
 
-#include "BlockIt.h"
+#include "BlockSource.h"
 #include "RecordSource.h"
 
-using ora::BlockIt, ora::RecordBound;
+using ora::FileBlockSource, ora::RecordBound;
 
-void shows(const std::string &filename, bool showBlock, bool showDump, bool onlyBlock, bool only1000) {
+void shows(const std::string &filename,
+           const bool showBlock,
+           const bool showDump,
+           const bool onlyBlock,
+           const bool only1000) {
 
     std::cout << filename << std::endl;
     std::cout << "*****************************************************************" << std::endl;
 
     // ================================================================================
-    auto block_it = std::make_unique<BlockIt>(filename, showBlock || onlyBlock);
+    auto block_it = std::make_unique<FileBlockSource>(filename, showBlock || onlyBlock); // <<<<<
 
     ora::show(block_it->getFileHead());
     ora::show(block_it->getRedoHead());
 
-    ora::DefaultRecordSource record_source(std::move(block_it));
+    ora::DefaultRecordSource record_source(std::move(block_it));                 // <<<<<
 
     auto nr = 0;
     while (auto rec = record_source.getNext()) {
         if (only1000 && (nr > 1000) ) break;
         if (!onlyBlock)
-            show(*rec, showDump);
+            show(*rec, showDump);                                               // <<<<<
         nr++;
     }
 

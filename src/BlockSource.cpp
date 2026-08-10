@@ -1,4 +1,4 @@
-#include "BlockIt.h"
+#include "BlockSource.h"
 #include "coral_result.h"
 
 namespace ora {
@@ -47,9 +47,8 @@ namespace ora {
         return Ok_of(std::move(rh));
     }
 
-    BlockIt::BlockIt(const std::string &path, const bool showBlock, const size_t buffer_sz)
-    :out_buffer_sz { buffer_sz}, showBlock(showBlock)
-    {
+    FileBlockSource::FileBlockSource(const std::string &path, const bool showBlock, const size_t buffer_sz)
+        : out_buffer_sz{buffer_sz}, showBlock(showBlock) {
         auto f = std::ifstream(path, std::ios::binary);
         if (!f) throw std::runtime_error("Cannot open file: " + path);
 
@@ -69,7 +68,7 @@ namespace ora {
         redoHead = std::move(rh.get());
     }
 
-    void BlockIt::drain() {
+    void FileBlockSource::drain() {
 
         const auto low = redoHead.writeInfo.low_scn;
         const auto top = redoHead.writeInfo.next_scn;
@@ -93,7 +92,7 @@ namespace ora {
         }
     }
 
-    std::optional<Block> BlockIt::getNext() {
+    std::optional<Block> FileBlockSource::getNext() {
         if (out_buffer.empty()) {
             drain();
             if (out_buffer.empty())

@@ -257,7 +257,7 @@ namespace ora {
                    "* Block Size         : {} bytes\n"
                    "* Blocks in file     : {} ({} MB)\n"
                    "  Group No/ file-type: Group {} / Type {}\n"
-                   "  Description        : {}\n\n",
+                   "* Description        : {}\n\n",
                    toHex(si.software_ver),
                    toHex(si.compat_ver),
                    si.database_name,
@@ -281,8 +281,8 @@ namespace ora {
                    "  Resetlogs SCN      : {}\n"
                    "  HWS(High-Water Seq): {}\n"
                    "  Thread No          : {}\n"
-                   "  Low  SCN / epoch   : {} / epoch: {}\n"
-                   "  Next SCN / epoch   : {} / epoch: {}\n\n",
+                   "* Low  SCN / epoch   : {} / epoch: {}\n"
+                   "* Next SCN / epoch   : {} / epoch: {}\n\n",
                    wi.nab,
                    wi.resetlogs_count,
                    toHex(wi.resetlogs_scn),
@@ -326,8 +326,8 @@ namespace ora {
         const auto &ki = head.keyInfo;
         fmt::print(os,
                    "--- [ TDE Key Info ] ---\n"
-                   "  Master Key ID      : {}\n"
-                   "  Encrypt Key        : {}\n"
+                   "* Master Key ID      : {}\n"
+                   "* Encrypt Key        : {}\n"
                    "  Key Flag           : {}\n"
                    "=================================================================\n",
                    toHex(ki.master_key_id.data(), ki.master_key_id.size()),

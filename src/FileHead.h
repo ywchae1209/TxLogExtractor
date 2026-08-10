@@ -91,9 +91,9 @@ namespace ora {
             "=================================================================\n"
             "[ Validation Status ] : {}\n\n"
             "  Type      : {}\n"
-            "  BlockSz   : {}\n"
-            "  BlockCount: {}\n"
-            "  isLittle  : {}\n",
+            "* BlockSz   : {}\n"
+            "* BlockCount: {}\n"
+            "* isLittle  : {}\n",
             to_string(h.valid),
             to_string(h.file_type),
             h.block_sz,
