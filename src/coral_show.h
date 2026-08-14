@@ -14,14 +14,43 @@
 
 namespace coral {
 
+    constexpr auto Rev_st = "\033[7m";
+    constexpr auto Rev_End = "\033[27m";
+
+    constexpr auto reset_color  = "\033[0m ";
+
+    constexpr auto red      = "\033[31m"; // green
+    constexpr auto green    = "\033[32m"; // green
+    constexpr auto yellow   = "\033[33m"; // yellow
+    constexpr auto blue     = "\033[34m"; // yellow
+    constexpr auto magenta  = "\033[35m"; // magenta
+    constexpr auto cyan     = "\033[36m"; // cyan
+
+    constexpr auto b_red    = "\033[91m"; // green
+    constexpr auto b_green  = "\033[92m";
+    constexpr auto b_yellow = "\033[93m";
+    constexpr auto b_blue   = "\033[94m";
+    constexpr auto b_magenta= "\033[95m";
+    constexpr auto b_cyan   = "\033[96m";
+    constexpr auto b_white  = "\033[97m";
+
+    constexpr auto B_red    = "\033[1;91m"; // green
+    constexpr auto B_green  = "\033[1;92m";
+    constexpr auto B_yellow = "\033[1;93m";
+    constexpr auto B_blue   = "\033[1;94m";
+    constexpr auto B_magenta= "\033[1;95m";
+    constexpr auto B_cyan   = "\033[1;96m";
+    constexpr auto B_white  = "\033[1;97m";
+
+    constexpr auto key_color = B_green;
+    constexpr auto desc_color= yellow;
+
     constexpr const char *colors[] = {
-        "\033[31m", // red
-        "\033[32m", // green
-        "\033[33m", // yellow
-        "\033[36m" // cyan
+        b_cyan,
+        b_green,
+        b_blue,
+        b_magenta
     };
-    constexpr const char *bright_green = "\033[92m";
-    constexpr const char *reset_color = "\033[0m ";
 
     inline void show_HexDump(const tcb::span<const char> &raw, size_t max_rows = 8) {
 

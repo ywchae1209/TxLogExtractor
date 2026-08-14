@@ -3,6 +3,7 @@
 // depend on glibc
 #include <endian.h>   // leXXtoh, beXXtoh
 #include <byteswap.h> // bswap16, bswap32, bswap64
+#include <cstdint>
 
 namespace coral {
     template<typename T>

@@ -9,6 +9,7 @@
 
 namespace ora {
 
+    // Block validity
     // --------------------------------------------------------------------------------
     enum class BHValid {
         Ok = 0,
@@ -17,56 +18,21 @@ namespace ora {
         Error
     };
 
-    inline std::string to_string(const BHValid& valid) {
-        switch (valid) {
-            case BHValid::Ok:                return "";
-            case BHValid::Empty:             return "Empty(1)";
-            case BHValid::Log_sqn_mismatch: return "Log_sqn_mismatch(2)";
-            case BHValid::Error:             return "Error(2)";
-            default: return "Unknown Error Code (" + std::to_string(static_cast<int>(valid)) + ")";
-        }
-    }
+    std::string to_string(const BHValid& valid);
 
+    // Block has  record-bounds
     // --------------------------------------------------------------------------------
     struct RecordBound {
-        uint64_t len;          // Record length from beforer-offset to next_offset
+        uint32_t len;          // Record length from before-offset to next_offset
         uint32_t next_blocks;  // (0 == 현재 블록)
-        uint16_t next_offset;  // 다음 레코드가 시작하는 블록 내 offset
+        uint16_t next_offset;  //
     };
 
-    inline std::string to_string(const RecordBound& p) {
-        using coral::toHex;
-        return p.next_blocks == 0
-                   ? fmt::format("{} :> @{}({})", p.len, p.next_offset, toHex(p.next_offset))
-                   : fmt::format("{} :> +{}.@{}({})", p.len, p.next_blocks, p.next_offset, toHex(p.next_offset));
-    }
-
-    inline std::string to_string(const RecordBound& p, const size_t block_no) {
-        using coral::toHex;
-        auto next_blocks = block_no + p.next_blocks;
-        return fmt::format("{} :> {}{}.@{}{}({})", p.len,
-                           coral::bright_green,
-                           next_blocks, p.next_offset,
-                           coral::reset_color,
-                           toHex(p.next_offset));
-    }
-
-    inline std::string to_string(const std::vector<RecordBound>& offsets) {
-        auto mapped = offsets
-                      | ranges::views::transform([](auto &p) { return to_string(p); });
-
-        return fmt::format("[{}]", fmt::join(mapped, ", "));
-    }
-
-    inline std::string to_string(const std::vector<RecordBound>& offsets, const size_t block_no) {
-        auto mapped = offsets
-                      | ranges::views::transform([block_no](auto &p) { return to_string(p, block_no); });
-
-        return fmt::format("[{}]", fmt::join(mapped, ", "));
-    }
+    std::string to_string(const RecordBound& p, size_t block_no);
+    std::string to_string(const std::vector<RecordBound>& offsets, size_t block_no);
 
     // ================================================================================
-    /** redo block head :: block's head in 2nd ~ fin blocks. */
+    /** redo block head :: 2nd block's info */
     struct BlockHead {
         BHValid valid{};
         std::array<uint8_t, 4> signature{};
@@ -77,37 +43,22 @@ namespace ora {
 
     };
 
-    inline std::string to_string(const BlockHead &h){
-
-        using coral::toHex;
-        return fmt::format(
-            "#{:<7} LSN:{}({}) Sig:{} off= {:<3}({}) {}",
-            h.block_no,
-            h.log_seq_no, toHex(h.log_seq_no),
-            toHex(h.signature),
-            h.offset, toHex(h.offset),
-            to_string(h.valid));
-    }
+    std::string to_string(const BlockHead &h);
 
     // ================================================================================
     struct Block {
         std::vector<char> raw;
-        tcb::span<const char> view;
-        tcb::span<const char> payload;
-
         BlockHead head;
         std::vector<RecordBound> bounds;
 
-        bool isOk() const noexcept { return head.valid ==  BHValid::Ok; }
+        [[nodiscard]] tcb::span<const char> payload() const {
+           return tcb::span(raw).subspan(16);
+       }
+
     };
 
-    inline std::string to_string(const Block& b) noexcept {
-        return fmt::format("B {} {}", to_string(b.head), to_string(b.bounds, b.head.block_no) );
-    }
-
-    inline void show(const Block& b, std::ostream &os = std::cout) noexcept {
-        fmt::println(os, "{}", to_string(b) );
-    }
+    std::string to_string(const Block& b);
+    void show(const Block& b, std::ostream &os = std::cout);
 
     constexpr auto SCN_lowest = SCN{0, 0, 0};
     constexpr auto SCN_top = SCN{ .base = 0xFFFFFFFF, .wrap = 0xFFFF, .wrap_high = 0xFFFF };

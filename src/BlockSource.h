@@ -13,26 +13,27 @@
 
 namespace ora {
 
-    // --------------------------------------------------------------------------------
+    // ================================================================================
     class BlockSource {
     public :
         virtual bool isLittleEndian() = 0;
+        virtual bool over12c() = 0;
         virtual uint16_t get_Block_sz() = 0;
 
         virtual ~BlockSource() = default;
         virtual std::optional<Block> getNext() = 0;
     };
 
-    // --------------------------------------------------------------------------------
+    // ================================================================================
     class FileBlockSource final : public BlockSource {
 
         FileHead fileHead{};
         RedoHead redoHead{};
-        uint32_t log_seq_no{}; // NOTE :: redoHead->log-file's seq
+        uint32_t log_seq_no{};   // NOTE :: redoHead->log-file's seq
 
         bool showBlock;
 
-        size_t out_buffer_sz;
+        size_t drain_limit;
 
         std::ifstream file;
         std::vector<char> read_buf;
@@ -43,13 +44,14 @@ namespace ora {
 
     public:
         bool isLittleEndian() override { return fileHead.isLittle; }
+        bool over12c() override { return redoHead.sourceInfo.compat_ver.major >= 12; }
         uint16_t get_Block_sz() override { return fileHead.block_sz; }
 
         explicit FileBlockSource(const std::string &path, bool showBlock = true, size_t buffer_sz = 1);
 
         [[nodiscard]] const FileHead &getFileHead() const { return fileHead; }
         [[nodiscard]] const RedoHead &getRedoHead() const { return redoHead; }
-
         [[nodiscard]]std::optional<Block> getNext() override;
     };
+
 }

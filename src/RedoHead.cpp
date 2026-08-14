@@ -71,7 +71,7 @@ namespace ora {
     };
 
 #pragma pack(pop)
-    OraVer decode_OraVer(const uint32_t n, const bool isLittle) {
+    static OraVer decode_OraVer(const uint32_t n, const bool isLittle) {
 
         const uint32_t o = coral::decode(n, isLittle);
         return OraVer{
@@ -83,7 +83,7 @@ namespace ora {
         };
     }
 
-    SourceInfo decode_SourceInfo(const SourceInfo_lo& raw, const bool isLittle) {
+    static SourceInfo decode_SourceInfo(const SourceInfo_lo& raw, const bool isLittle) {
         SourceInfo o{};
 
         o.software_ver     = decode_OraVer(raw.software_ver, isLittle);
@@ -105,7 +105,7 @@ namespace ora {
         return o;
     }
 
-    WriteInfo decode_WriteInfo(const WriteInfo_lo& raw, const bool isLittle) {
+    static WriteInfo decode_WriteInfo(const WriteInfo_lo& raw, const bool isLittle) {
         WriteInfo o{};
 
         o.nab              = coral::decode(raw.nab, isLittle);
@@ -121,7 +121,7 @@ namespace ora {
         return o;
     }
 
-    ThreadState decode_ThreadState(const ThreadState_lo& raw, const bool isLittle) {
+    static ThreadState decode_ThreadState(const ThreadState_lo& raw, const bool isLittle) {
         ThreadState o{};
 
         o.eot           = raw.eot;
@@ -134,7 +134,7 @@ namespace ora {
         return o;
     }
 
-    FileState decode_FileState(const FileState_lo& raw, const bool isLittle) {
+    static FileState decode_FileState(const FileState_lo& raw, const bool isLittle) {
         FileState o{};
 
         o.log_format_ver = coral::decode(raw.log_format_ver, isLittle);
@@ -144,7 +144,7 @@ namespace ora {
         return o;
     }
 
-    TDEKeyInfo decode_KeyInfo(const TDEKey_lo& raw, const bool isLittle) {
+    static TDEKeyInfo decode_KeyInfo(const TDEKey_lo& raw, const bool isLittle) {
 
         TDEKeyInfo o{};
 
@@ -162,7 +162,7 @@ namespace ora {
         return o;
     }
 
-    RHValid validate(const RedoHead& head) {
+    static RHValid validate(const RedoHead& head) {
 
         constexpr int MAX_RAC   = 1024;
         constexpr int MAX_GROUP = 1024;
@@ -205,7 +205,7 @@ namespace ora {
         return RHValid::Ok;
     }
 
-    RedoHead decode_RedoHead(const RedoHead_lo& raw, const bool isLittle) {
+    static RedoHead decode_RedoHead(const RedoHead_lo& raw, const bool isLittle) {
 
         RedoHead o {
             RHValid::Ok,
@@ -335,4 +335,23 @@ namespace ora {
                    toHex(ki.key_flag)
         );
     }
+
+    // --------------------------------------------------------------------------------
+    std::string to_string(const RHValid& val) noexcept {
+        switch (val) {
+            case RHValid::Ok:               return "Ok";
+            case RHValid::Empty:            return "Empty";
+            case RHValid::TooShort:         return "TooShort";
+            case RHValid::InvalidFileType:  return "InvalidFileType";
+            case RHValid::InvalidBlockSize: return "InvalidBlockSize";
+            case RHValid::InvalidNab:       return "InvalidNab";
+            case RHValid::InvalidGroupNo:   return "InvalidGroupNo";
+            case RHValid::InvalidThreadNo:  return "InvalidThreadNo";
+            case RHValid::ScnLogicMismatch: return "ScnLogicMismatch";
+            case RHValid::EpochMismatch:    return "EpochMismatch";
+        }
+        return "Unknown";
+    }
+
+
 }

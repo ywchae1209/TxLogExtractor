@@ -80,7 +80,7 @@ namespace coral {
         }
 
         std::string result;
-        result.reserve(64); // 불필요한 재할당 방지 메모리 예약
+        result.reserve(64);
 
         auto append_flag = [&result](const char* flag_name) {
             if (!result.empty()) {
@@ -207,10 +207,10 @@ namespace coral {
         const auto vld = read_u8(view, offset + 4);
         if (vld && !validate_len_vld(*vld, *len)) return std::nullopt;
 
-        // validate with wrap & base
+        // validate with wrap.base
         const auto wrap = read_u16(view, offset + 6, isLittle);
         const auto base = read_u32(view, offset + 8, isLittle);
-        bool ok =
+        const bool ok =
                 low.wrap <= *wrap && *wrap <= next.wrap &&
                 low.base <= *base && *base <= next.base;
         if (!ok) {

@@ -7,65 +7,9 @@
 
 #include "coral_show.h"
 #include "coral_decode.h"
+#include "ora_layout.h"
 
 namespace ora {
-
-#pragma pack(push, 1)
-    struct SCN_lo{
-        uint32_t minor;  // base
-        uint32_t major;  // wrap ~ wrap_high
-    };
-#pragma pack(pop)
-
-    /** 오라클 SCN (System Change Number) (64-bit) */
-    struct SCN {
-        uint32_t base{};        ///< SCN Base
-        uint16_t wrap{};        ///< SCN Wrap
-        uint16_t wrap_high{};   ///< SCN Wrap_High
-    };
-
-    inline SCN decode_SCN(const SCN_lo& raw, const bool isLittle) {
-
-        const uint32_t minor = coral::decode(raw.minor, isLittle);
-        const uint32_t major = coral::decode(raw.major, isLittle);
-
-        const uint16_t upper = major >> 16;
-        const uint16_t lower = major & 0xFFFF;
-
-        SCN o = {};
-        o.base = minor;
-        o.wrap = upper;
-        o.wrap_high = lower;
-
-        return o;
-    }
-
-    inline uint64_t scn_to64(const SCN& scn) {
-        // drop wrap_high
-        return (static_cast<uint64_t>(scn.wrap) << 32) | scn.base;
-    }
-
-    // SCN : 0x0000.00000000 (0)
-    inline std::string toHex(const SCN& scn) {
-        if (scn.wrap_high == 0)
-            return fmt::format("0x{:04x}.{:08x} ({})", scn.wrap, scn.base, scn_to64(scn));
-
-        return fmt::format("0x{:04x}.{:04x}.{:08x} ({})", scn.wrap_high, scn.wrap, scn.base, scn_to64(scn));
-    }
-
-    /** 오라클 버전 */
-    struct OraVer {
-        uint32_t raw_val{};
-        uint8_t  major{};
-        uint8_t  minor{};
-        uint8_t  patch{};
-        uint8_t  extra{};
-    };
-
-    // OraVer : 19.3.0.0
-    inline std::string toHex(const OraVer& ver) {
-        return fmt::format("{}.{}.{}.{}", ver.major, ver.minor, ver.patch, ver.extra);
-    }
 
     /** 데이터베이스 및 리두 로그 메타데이터 기본 정보 */
     struct SourceInfo {
@@ -120,7 +64,7 @@ namespace ora {
         uint16_t key_flag{};
     };
 
-    /** 리두 로그 헤더 검증 상태 코드 */
+    // --------------------------------------------------------------------------------
     enum class RHValid {
         Ok = 0,
         Empty,
@@ -134,24 +78,9 @@ namespace ora {
         EpochMismatch
     };
 
-    inline std::string to_string(const RHValid& val) noexcept {
-        switch (val) {
-            case RHValid::Ok:               return "Ok";
-            case RHValid::Empty:            return "Empty";
-            case RHValid::TooShort:         return "TooShort";
-            case RHValid::InvalidFileType:  return "InvalidFileType";
-            case RHValid::InvalidBlockSize: return "InvalidBlockSize";
-            case RHValid::InvalidNab:       return "InvalidNab";
-            case RHValid::InvalidGroupNo:   return "InvalidGroupNo";
-            case RHValid::InvalidThreadNo:  return "InvalidThreadNo";
-            case RHValid::ScnLogicMismatch: return "ScnLogicMismatch";
-            case RHValid::EpochMismatch:    return "EpochMismatch";
-        }
-        return "Unknown";
-    }
+    std::string to_string(const RHValid& val) noexcept;
 
     // --------------------------------------------------------------------------------
-    /** 리두 로그 헤더 전체 구조체 */
     struct RedoHead {
         RHValid     valid{ RHValid::Empty};
         SourceInfo  sourceInfo{};
@@ -164,7 +93,6 @@ namespace ora {
     };
 
     RedoHead RedoHead_of(const tcb::span<const char> &raw, bool isLittle);
-
     void show(const RedoHead &head, std::ostream &os = std::cout) ;
 
 }

@@ -39,7 +39,7 @@ namespace ora {
     }
 
     static Result<RedoHead> read_RedoHead(std::ifstream& in, const Block& b, const FileHead& fh) {
-        auto rh = RedoHead_of(b.payload, fh.isLittle);
+        auto rh = RedoHead_of(b.payload(), fh.isLittle);
 
         if (!rh.isOk() )
             return Err_of<RedoHead> ("[read_RedoHead] Invalid Redo-Head: " + to_string(rh.valid));
@@ -47,8 +47,13 @@ namespace ora {
         return Ok_of(std::move(rh));
     }
 
-    FileBlockSource::FileBlockSource(const std::string &path, const bool showBlock, const size_t buffer_sz)
-        : out_buffer_sz{buffer_sz}, showBlock(showBlock) {
+    FileBlockSource::FileBlockSource(
+        const std::string &path,
+        const bool showBlock,
+        const size_t buffer_sz
+    ) : drain_limit{buffer_sz}, showBlock(showBlock)
+    {
+
         auto f = std::ifstream(path, std::ios::binary);
         if (!f) throw std::runtime_error("Cannot open file: " + path);
 
@@ -74,10 +79,9 @@ namespace ora {
         const auto top = redoHead.writeInfo.next_scn;
 
         const auto block_sz = fileHead.block_sz;
-
         read_buf.resize(block_sz);
 
-        for (auto i = 0; i < out_buffer_sz && file; ++i) {
+        for (auto i = 0; i < drain_limit && file; ++i) {
             file.read(read_buf.data(), block_sz);
 
             if (file.gcount() < block_sz)
@@ -86,22 +90,25 @@ namespace ora {
             auto b = Block_of(read_buf, block_sz, fileHead.isLittle, low, top);
 
             if (b.head.log_seq_no != this->log_seq_no)
-                break;
+                break;  // end of log-seq
 
             out_buffer.push_back(b);
         }
     }
 
     std::optional<Block> FileBlockSource::getNext() {
+
         if (out_buffer.empty()) {
             drain();
             if (out_buffer.empty())
                 return std::nullopt;
         }
+
         auto b = out_buffer.front();
 
         if (showBlock)
             show(b);
+
         out_buffer.pop_front();
         return b;
     }
