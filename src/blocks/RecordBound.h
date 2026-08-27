@@ -51,7 +51,7 @@ namespace ora {
         uint32_t next_blocks;  // (0 == 현재 블록)
         uint16_t next_offset;  //
 
-        BoundInfo boundInfo;   // todo ::: temp
+        BoundInfo boundInfo;
     };
 
     // --------------------------------------------------------------------------------

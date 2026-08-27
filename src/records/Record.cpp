@@ -53,7 +53,8 @@ namespace ora {
             std::move(bytes),
             std::move(header),
             ctx.over12c,
-            ctx.isLittle
+            ctx.isLittle,
+            bound.boundInfo.vld == 0
         };
     }
 

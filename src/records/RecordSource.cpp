@@ -1,7 +1,5 @@
 #include "RecordSource.h"
 
-#include <cassert>
-
 namespace ora {
 
     using std::optional, std::vector, std::runtime_error;

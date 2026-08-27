@@ -45,9 +45,11 @@ namespace ora {
         const std::vector<char> raw;
         RecordHead header{};
 
-        bool isVoid;
         bool over12c;
         bool isLittle;
+        bool isVoid;
+
+        // --------------------------------------------------------------------------------
 
         std::optional<std::vector<Change>> cache_changes{};
 

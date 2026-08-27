@@ -56,7 +56,7 @@ namespace ora {
         const auto lv_len = decode(lv0, isLittle);
 
         if (lv_len == 0) {
-            // coral::show_HexDump(raw, std::cerr);        // todo :: g3nie
+            // coral::show_HexDump(raw, std::cerr);
             return std::make_tuple(raw.subspan(4), LengthVector{});
         }
 
@@ -64,9 +64,12 @@ namespace ora {
                                && lv_len <= raw.size()
                                && lv_len % 2 == 0;      // uint16_t
 
-        if (!valid_lv_len)
-            throw std::out_of_range(
-                fmt::format( "decode_LengthVector:2: wrong lv0: {} (decoded){} : {} ", lv0, lv_len, raw.size() ) );
+        if (!valid_lv_len) {
+            auto msg = fmt::format( "decode_LengthVector:2: wrong lv0: {} (decoded){} : {} ", lv0, lv_len, raw.size() );
+            fmt::println(std::cerr, msg);
+            coral::show_HexDump(raw);
+            throw std::out_of_range( msg);
+        }
 
         // slot
         const auto slots = lv_len / sizeof(uint16_t);

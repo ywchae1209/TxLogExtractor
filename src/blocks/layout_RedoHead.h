@@ -100,8 +100,6 @@ namespace ora {
         std::memcpy(o.desc, raw.desc, 64);
         o.desc[64] = '\0';
 
-        fmt::println(">>>> {}\n>>>> {}", toHex(o.compat_ver), o.desc); // todo -- temp
-
         return o;
     }
 
@@ -117,8 +115,6 @@ namespace ora {
         o.low_epoch        = coral::decode(raw.low_epoch, isLittle);
         o.next_scn         = decode_SCN0(raw.next_scn, isLittle);
         o.next_epoch       = coral::decode(raw.next_epoch, isLittle);
-
-        // fmt::println(">>>> isLittle {}\nlow  {}\nnext {}", isLittle, toHex(o.low_scn), toHex(o.next_scn)); // todo -- temp
 
         return o;
     }
