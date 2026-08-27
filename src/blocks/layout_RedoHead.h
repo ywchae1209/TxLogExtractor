@@ -1,0 +1,227 @@
+#pragma once
+
+#include "RedoHead.h"
+#include "../coral_decode.h"
+
+namespace ora {
+#pragma pack(push, 1)
+    struct SourceInfo_lo{
+        uint32_t software_ver;     //
+        uint32_t compat_ver;       //
+        uint32_t database_id;      // database ID !!
+        char     database_name[8]; // ex: 'ORACLE'
+        uint32_t control_sequence; // ora internal. 로그 생성시점의 컨트롤파일시퀀스번호
+        uint32_t blocks_in_file;   // 블록갯수 ex) 40K => 40K X block(0.5K) = 20MB
+        uint32_t block_sz;         //
+        uint16_t group_no;         // 그룹번호 in redo-log-group !!
+        uint16_t file_type;        // 2 == LOG
+        uint32_t activation_id;    // reset RESETLOGS !!
+        uint8_t  pad[36];          //
+        char     desc[64];         //"Thread 0001, S 0000003344, SCN 0x000000004344ae53-0xffffffffffffffff"
+    };
+
+    struct WriteInfo_lo{
+        uint32_t nab;             // 파일내의 Next Available Block번호
+        uint32_t resetlogs_count; // RESETLOGS 횟수(또는 timestamp)
+        SCN_lo   resetlogs_scn;   // RESETLOGS scn
+        uint32_t hws;             // Oracle internal. High-Water-Mark Sequence.
+        uint16_t thread_no;       // single = 1, RAC = 1, 2, ... !!
+        uint8_t  pad[2];          //
+        SCN_lo   low_scn;         // low(start) scn in this log-file
+        uint32_t low_epoch;       //
+        SCN_lo   next_scn;        // next scn (when CURRENT, 0xffff.ffffffff 01/01/1988 00:00:00)
+        uint32_t next_epoch;      //
+    };
+
+    struct ThreadState_lo{
+        uint8_t  eot;             // flag ~ End of thread. (1 = last log of current-thread)
+        uint8_t  dis;             // flag ~ Thread disabled.
+        uint8_t  pad[2];          //
+        SCN_lo   enabled_scn;     // scn-epoch at thread enabled
+        uint32_t enabled_epoch;   //
+        SCN_lo   close_scn;       // scn-epoch at thread closed/offline normally.
+        uint32_t close_epoch;     //
+    };
+
+    struct FileState_lo{
+        uint32_t log_format_ver;  //
+        uint32_t flags;           // flag ~ log-file state. (cleared, archived, ...)
+        SCN_lo   terminal_scn;    // scn-epoch for failover/switch-over control in standby-DB/ Data-Guard
+        uint32_t terminal_epoch;  //
+        uint8_t  pad[4];          //
+        uint8_t  unknown[192];    //
+    };
+
+    struct TDEKey_lo{
+        uint32_t pad_aix;           // todo :: check BigEndian OS :: AIX,
+        uint8_t  encrypt_key[16];   //
+        uint8_t  master_key_id[16]; //
+        uint8_t  key_flag[2];       //
+    };
+
+    struct RedoHead_lo{
+        SourceInfo_lo  source_info;
+        WriteInfo_lo   write_info;
+        ThreadState_lo threadState;
+        FileState_lo   fileState;
+        TDEKey_lo      keyInfo;
+    };
+
+#pragma pack(pop)
+
+    inline static OraVer decode_OraVer(const uint32_t n, const bool isLittle) {
+
+        const uint32_t o = coral::decode(n, isLittle);
+        return OraVer{
+            o,
+            static_cast<uint8_t>((o >> 24) & 0xFF),
+            static_cast<uint8_t>((o >> 16) & 0xFF),
+            static_cast<uint8_t>((o >> 8)  & 0xFF),
+            static_cast<uint8_t>(o & 0xFF)
+        };
+    }
+
+    inline static SourceInfo decode_SourceInfo(const SourceInfo_lo& raw, const bool isLittle) {
+        SourceInfo o{};
+
+        o.software_ver     = decode_OraVer(raw.software_ver, isLittle);
+        o.compat_ver       = decode_OraVer(raw.compat_ver, isLittle);
+        o.database_id      = coral::decode(raw.database_id, isLittle);
+        o.control_sequence = coral::decode(raw.control_sequence, isLittle);
+        o.blocks_in_file   = coral::decode(raw.blocks_in_file, isLittle);
+        o.block_sz         = coral::decode(raw.block_sz, isLittle);
+        o.activation_id    = coral::decode(raw.activation_id, isLittle);
+        o.group_no         = coral::decode(raw.group_no, isLittle);
+        o.file_type        = coral::decode(raw.file_type, isLittle);
+
+        std::memcpy(o.database_name, raw.database_name, 8);
+        o.database_name[8] = '\0';
+
+        std::memcpy(o.desc, raw.desc, 64);
+        o.desc[64] = '\0';
+
+        fmt::println(">>>> {}\n>>>> {}", toHex(o.compat_ver), o.desc); // todo -- temp
+
+        return o;
+    }
+
+    inline static WriteInfo decode_WriteInfo(const WriteInfo_lo& raw, const bool isLittle) {
+        WriteInfo o{};
+
+        o.nab              = coral::decode(raw.nab, isLittle);
+        o.resetlogs_count  = coral::decode(raw.resetlogs_count, isLittle);
+        o.resetlogs_scn    = decode_SCN0(raw.resetlogs_scn, isLittle);
+        o.hws              = coral::decode(raw.hws, isLittle);
+        o.thread_no        = coral::decode(raw.thread_no, isLittle);
+        o.low_scn          = decode_SCN0(raw.low_scn, isLittle);
+        o.low_epoch        = coral::decode(raw.low_epoch, isLittle);
+        o.next_scn         = decode_SCN0(raw.next_scn, isLittle);
+        o.next_epoch       = coral::decode(raw.next_epoch, isLittle);
+
+        // fmt::println(">>>> isLittle {}\nlow  {}\nnext {}", isLittle, toHex(o.low_scn), toHex(o.next_scn)); // todo -- temp
+
+        return o;
+    }
+
+    inline static ThreadState decode_ThreadState(const ThreadState_lo& raw, const bool isLittle) {
+        ThreadState o{};
+
+        o.eot           = raw.eot;
+        o.dis           = raw.dis;
+        o.enabled_scn   = decode_SCN(raw.enabled_scn, isLittle);
+        o.enabled_epoch = coral::decode(raw.enabled_epoch, isLittle);
+        o.close_scn     = decode_SCN0(raw.close_scn, isLittle);
+        o.close_epoch   = coral::decode(raw.close_epoch, isLittle);
+
+        return o;
+    }
+
+    inline static FileState decode_FileState(const FileState_lo& raw, const bool isLittle) {
+        FileState o{};
+
+        o.log_format_ver = coral::decode(raw.log_format_ver, isLittle);
+        o.flags          = coral::decode(raw.flags, isLittle);
+        o.terminal_scn   = decode_SCN0(raw.terminal_scn, isLittle);
+        o.terminal_epoch = coral::decode(raw.terminal_epoch, isLittle);
+        return o;
+    }
+
+    inline static TDEKeyInfo decode_KeyInfo(const TDEKey_lo& raw, const bool isLittle) {
+
+        TDEKeyInfo o{};
+
+        // todo :: check -- Solaris(SPARC-based), HP-UX( PA-RISC, Itanium), AIX (POWER, PowerPC)
+        // Big-Endian(AIX 등)인 경우 패딩 4바이트를 건너뛰고 오프셋 +4 지점에서 복사
+        // Solaris(SPARC-based), HP-UX( PA-RISC, Itanium), AIX (POWER, PowerPC)
+        const uint8_t* ptr = (isLittle || (raw.pad_aix != 0))
+                             ? reinterpret_cast<const uint8_t*>(&raw)
+                             : reinterpret_cast<const uint8_t*>(&raw) + 4;
+
+        std::memcpy(o.encrypt_key.data(),   ptr,      16);
+        std::memcpy(o.master_key_id.data(), ptr + 16, 16);
+        o.key_flag = coral::decode(*reinterpret_cast<const uint16_t*>(ptr + 32), isLittle);
+
+        return o;
+    }
+
+    inline static RHValid validate(const RedoHead& head) {
+
+        constexpr int MAX_RAC   = 1024;
+        constexpr int MAX_GROUP = 1024;
+
+        const SourceInfo& si = head.sourceInfo;
+        const WriteInfo&  wi = head.writeInfo;
+
+        // 1. File Type: redo-log == 2
+        if (si.file_type != 2) return RHValid::InvalidFileType;
+
+        // 2. Block Size: 512 || 1024 || 4096
+        if (si.block_sz != 512 && si.block_sz != 1024 && si.block_sz != 4096)
+            return RHValid::InvalidBlockSize;
+
+        // 3. Group Number: 1 <= group_no <= 1024
+        if (si.group_no == 0 || si.group_no > MAX_GROUP)
+            return RHValid::InvalidGroupNo;
+
+        // 4. Thread Number: 1 <= thread_no <= 1024
+        if (wi.thread_no == 0 || wi.thread_no > MAX_RAC)
+            return RHValid::InvalidThreadNo;
+
+        // 5. NAB (Next Available Block)
+        if (wi.nab != 0xFFFFFFFF && (wi.nab == 0 || wi.nab > si.blocks_in_file + 1)) {
+            fmt::println("InvalidNab : nab {} > blocks {} + 1", wi.nab, si.blocks_in_file);
+            return RHValid::InvalidNab;
+        }
+
+        const uint64_t low_scn = scn_to64(wi.low_scn);
+        const uint64_t nxt_scn = scn_to64(wi.next_scn);
+        const uint64_t rst_scn = scn_to64(wi.resetlogs_scn);
+
+        // // Resetlogs-SCN < Low-SCN
+        // if (rst_scn > low_scn) return RHValid::ScnLogicMismatch;
+        //
+        // // Low-SCN < Next-SCN
+        // if (nxt_scn != 0xFFFFFFFFFFFFFFFFULL) {
+        //     if (low_scn > nxt_scn) return RHValid::ScnLogicMismatch;
+        //     if (wi.low_epoch > wi.next_epoch) return RHValid::EpochMismatch;
+        // }
+
+        return RHValid::Ok;
+    }
+
+    inline static RedoHead decode_RedoHead(const RedoHead_lo& raw, const bool isLittle) {
+
+        RedoHead o {
+            RHValid::Ok,
+            decode_SourceInfo(raw.source_info, isLittle),
+            decode_WriteInfo(raw.write_info, isLittle),
+            decode_ThreadState(raw.threadState, isLittle),
+            decode_FileState(raw.fileState, isLittle),
+            decode_KeyInfo(raw.keyInfo, isLittle)
+        };
+
+        o.valid = validate(o);
+
+        return o;
+    }
+}

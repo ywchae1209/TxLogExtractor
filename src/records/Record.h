@@ -1,19 +1,20 @@
 #pragma once
-#include <tcb/span.hpp>
 
-#include "Block.h"
-#include "ChangeHead.h"
-#include "coral_record.h"
-#include "oara_opCodes.h"
+#include <tcb/span.hpp>
+#include "Change.h"
+#include "ora_opCodes.h"
+#include "../blocks/RecordBound.h"
 
 namespace ora {
 
+    // ================================================================================
     struct RecordHead_Base {
         uint32_t len;             ///< Record total length
         uint8_t  vld;             ///< Validity flags
         uint16_t scn_wrap;        ///< SCN wrap
         uint32_t scn_base;        ///< SCN base             --- len ~ scn_base :: verify
         uint16_t sub_scn;         ///< Sub SCN
+        uint32_t container_id;    ///< Container ID (PDB ID; over 12c)
     };
 
     struct RecordHead_LWN {
@@ -28,49 +29,46 @@ namespace ora {
     };
 
     struct RecordHead {
+        size_t size{0};
         RecordHead_Base base;
-        size_t offset;
         std::optional<RecordHead_LWN> lwn; // optional로 하는게 좋을까?
-    };
 
-    RecordHead RecordHead_of(const tcb::span<const char>& raw, bool isLittle);
-
-    std::string to_string(const RecordHead &h);
-
-    // ================================================================================
-    struct RBA {
-        uint32_t log_seq_no{0}; // Redo-Log Sequence Number
-        uint32_t block_no{0};   // Block Number
-        uint16_t offset{0};     // start-offset
     };
 
     // ================================================================================
+
     struct Record {
         RBA rba;
         uint32_t end_block{0};
         uint16_t end_offset{0};
 
         const std::vector<char> raw;
+        RecordHead header{};
 
-        RecordHead head{};
-        ChangeHead change_head{};
+        bool isVoid;
+        bool over12c;
+        bool isLittle;
 
-        // ------------------------------------------------------------
+        std::optional<std::vector<Change>> cache_changes{};
 
-        Record() = default;
-
-        explicit Record(
-            RBA rba,
-            std::vector<char> &bytes,
-            uint32_t e_block,
-            uint16_t e_offset,
-            uint16_t block_sz,
-            bool isLittle,
-            bool over12c );
-
-        void set_Head( bool isLittle, bool over12c);
+        std::vector<Change> changes() {
+            if (!cache_changes.has_value()) {
+                cache_changes = isVoid
+                                    ? std::vector<Change>{}
+                                    : Changes_of(rba, tcb::span(raw).subspan(header.size), over12c, isLittle);
+            }
+            return *cache_changes;
+        }
     };
 
+    Record Record_of(
+        const RBA& rba,
+        const std::vector<char>& bytes,
+        const RecordBound& bound,
+        const BlockCtx& ctx );
+
+    // --------------------------------------------------------------------------------
+    std::string to_string(const RecordHead &h);
     void show(Record& r, uint8_t showMode = 0, std::ostream &os = std::cout);
 }
 

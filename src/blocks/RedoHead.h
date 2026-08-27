@@ -5,9 +5,9 @@
 #include <string>
 #include <tcb/span.hpp>
 
-#include "coral_show.h"
-#include "coral_decode.h"
-#include "ora_layout.h"
+#include "../coral_show.h"
+#include "../coral_decode.h"
+#include "../ora_layout.h"
 
 namespace ora {
 
@@ -30,12 +30,12 @@ namespace ora {
     struct WriteInfo {
         uint32_t nab{};              ///< Next Available Block
         uint32_t resetlogs_count{};  ///< RESETLOGS 실행 횟수
-        SCN      resetlogs_scn{};
+        SCN      resetlogs_scn{};   ///
         uint32_t hws{};              ///< High-Water-Mark Sequence
         uint16_t thread_no{};        ///< RAC 쓰레드 번호
-        SCN      low_scn{};
+        SCN      low_scn{};         // MSB is flag.
         uint32_t low_epoch{};
-        SCN      next_scn{};
+        SCN      next_scn{};        // MSB is flag.
         uint32_t next_epoch{};
     };
 
@@ -45,7 +45,7 @@ namespace ora {
         uint8_t  dis{};              ///< Thread Disabled 플래그
         SCN      enabled_scn{};
         uint32_t enabled_epoch{};
-        SCN      close_scn{};
+        SCN      close_scn{};       // MSB is flag.
         uint32_t close_epoch{};
     };
 
@@ -53,7 +53,7 @@ namespace ora {
     struct FileState {
         uint32_t log_format_ver{};
         uint32_t flags{};
-        SCN      terminal_scn{};
+        SCN      terminal_scn{};        // MSB is flag.
         uint32_t terminal_epoch{};
     };
 
@@ -78,8 +78,6 @@ namespace ora {
         EpochMismatch
     };
 
-    std::string to_string(const RHValid& val) noexcept;
-
     // --------------------------------------------------------------------------------
     struct RedoHead {
         RHValid     valid{ RHValid::Empty};
@@ -93,6 +91,13 @@ namespace ora {
     };
 
     RedoHead RedoHead_of(const tcb::span<const char> &raw, bool isLittle);
-    void show(const RedoHead &head, std::ostream &os = std::cout) ;
 
+    // --------------------------------------------------------------------------------
+    void show(const RedoHead &head, std::ostream &os = std::cout) ;
+    std::string to_string(const RHValid& val);
+    std::string to_string(const SourceInfo& si);
+    std::string to_string(const WriteInfo& wi);
+    std::string to_string(const ThreadState& ts);
+    std::string to_string(const FileState& fs);
+    std::string to_string(const TDEKeyInfo& ki);
 }

@@ -1,5 +1,5 @@
-#include "oara_opCodes.h"
-#include "coral_show.h"
+#include "ora_opCodes.h"
+#include "../coral_show.h"
 
 #include <iostream>
 #include <string>
@@ -467,9 +467,11 @@ namespace ora {
 
         // --- OP 5.19 (KTUTSL): Transaction Start Audit Log Record ---
         {5, 19, 0, "KTU_TSL_NORMAL (트랜잭션 시작 감사 로그 기록)"},
+        {5, 19, 6, "KTU_TSL_MARKER (트랜잭션 시작 감사 마커 레코드)"},
 
         // --- OP 5.20 (KTUTSC): Transaction Continue Audit Log Record ---
         {5, 20, 0, "KTU_TSC_NORMAL (트랜잭션 지속 감사 로그 기록)"},
+        {5, 20, 6, "KTU_TSC_MARKER (트랜잭션 지속 감사 마커 레코드)"},
 
         // --- OP 5.23 (KTURDBR): Disable Block Level Recovery ---
         {5, 23, 0, "KTU_DBR_NORMAL (일반 블록 레벨 복구 비활성화)"},
@@ -501,6 +503,12 @@ namespace ora {
         {10, 3, 0, "Normal Leaf Row Purge (일반 인덱스 리프 행 퍼지)"},
         {10, 4, 0, "Normal Leaf Row Delete Mark (일반 인덱스 엔트리 삭제 표시)"},
         {10, 4, 1, "Purge Leaf Row (인덱스 엔트리 영구 삭제)"},
+        {10, 4, 2, "Rollback Leaf Row Delete (인덱스 엔트리 삭제 취소/롤백)"},
+        {10, 5, 0, "Restore Leaf Row (인덱스 리프 행 복원 및 복구)"},
+        {10, 18, 0, "Index Leaf Compression/Fast Clean (인덱스 리프 블록 압축 및 재정비)"},
+        {10, 18, 2, "Index Fast Split / Direct Reorg (인덱스 고속 분할 및 재구성)"},
+        {10, 35, 0, "Index Advanced Compression Redo (인덱스 고급 압축 변경)"},
+
 
         // =========================================================================
         // LAYER 11: KDO (Kernel Data Objects) - 행(Row) 수준 접근 및 조작
@@ -529,6 +537,7 @@ namespace ora {
         // --- OP 11.4 (KDOLKR): Lock Row Piece ---
         {11, 4, 0, "KDO_LKR_NORMAL (일반 행 수준 잠금 / Row Lock)"},
         {11, 4, 1, "KDO_LKR_SHARED (공유 행 잠금 / Cluster Key Lock)"},
+        {11, 4, 2, "KDO_LKR_ROLLBACK (행 잠금 해제/롤백 조작)"},
 
         // --- OP 11.5 (KDOURP): Update Row Piece ---
         {11, 5, 0, "KDO_URP_NORMAL (일반 행 수정)"},
@@ -558,6 +567,7 @@ namespace ora {
         // --- OP 11.11 (KDOQMI): Quick Multi-Insert ---
         {11, 11, 0, "KDO_QMI_NORMAL (대량 고속 일괄 삽입 - INSERT SELECT 등)"},
         {11, 11, 1, "KDO_QMI_DIRECT (Direct Path 고속 일괄 삽입)"},
+        {11, 11, 2, "KDO_QMI_MULTI_PIECE (대량 고속 다중 조각/부분 일괄 삽입)"},
 
         // --- OP 11.12 (KDOQMD): Quick Multi-Delete ---
         {11, 12, 0, "KDO_QMD_NORMAL (대량 고속 일괄 삭제)"},
@@ -598,6 +608,7 @@ namespace ora {
         {13, 61, 1, "Format L1 BMB (L1 비트맵 블록 포맷/초기화)"},
         {13, 62, 0, "Normal L1 BMB Redo (일반 L1 비트맵 블록 변경)"},
         {13, 63, 1, "Format L2 BMB (L2 비트맵 블록 포맷/초기화)"},
+        {13, 64, 0, "Normal L2 BMB Redo / Format L3 BMB (일반 L2 비트맵 블록 / L3 BMB 변경)"},
 
         // =========================================================================
         // LAYER 14: KTE (Kernel Transaction Extent) - 익스텐트 관리
@@ -612,6 +623,7 @@ namespace ora {
         // =========================================================================
         {17, 3, 6, "Crash Recovery Marker (크래시 복구 지점 마커)"},
         {17, 15, 6, "Heartbeat Redo Marker (하트비트/체크포인트 상태 마커)"},
+        {17, 28, 6, "System Container/State Marker (시스템/PDB 상태 변경 복구 마커)"},
         {18, 3, 6, "Object/Range Reuse Marker (오브젝트/범위 재사용 마커)"},
         {22, 2, 0, "Normal Space Header Redo (일반 공간 헤더 블록 변경)"},
         {22, 5, 0, "Normal Bitmap Index/Space Redo (일반 비트맵 인덱스/공간 블록 변경)"},
@@ -646,6 +658,6 @@ namespace ora {
         if (it != cTypeMap.end()) {
             return fmt::format("    {} CTy: {} ({}.{})",  it->second, ctype, layer, code);
         }
-        return fmt::format("    ToDo CTy: {} ({}.{})", ctype, layer, code);
+        return fmt::format("    todo CTy: {} ({}.{})", ctype, layer, code);
     }
 }

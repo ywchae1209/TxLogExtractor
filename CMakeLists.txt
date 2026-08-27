@@ -22,14 +22,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(TxLogExtractor
         src/main.cpp
-        src/FileHead.cpp
-        src/RedoHead.cpp
-        src/Block.cpp
-        src/BlockSource.cpp
-        src/Record.cpp
-        src/ChangeHead.cpp
-        src/RecordSource.cpp
-        src/ora_opCodes.cpp
+        src/blocks/FileHead.cpp
+        src/blocks/RedoHead.cpp
+        src/blocks/Block.cpp
+        src/blocks/BlockSource.cpp
+        src/blocks/RecordBound.cpp
+        src/records/Record.cpp
+        src/records/Change.cpp
+        src/records/RecordSource.cpp
+        src/records/ora_opCodes.cpp
 )
 
 #target_link_libraries(TxLogExtractor PRIVATE TxLogCore)

@@ -1,15 +1,11 @@
+#pragma once
 
-#include <optional>
-
-#include "ora_layout.h"
-#include "ChangeHead.h"
-
-#include "oara_opCodes.h"
-
-/// https://renenyffenegger.ch/notes/index.html
+#include "Change.h"
+#include "../coral_decode.h"
+#include "../ora_layout.h"
 
 namespace ora {
-
+    /// https://renenyffenegger.ch/notes/index.html
 #pragma pack(push, 1)
 
     ///< cls
@@ -40,7 +36,7 @@ namespace ora {
     ///<    Data_Object_id: 실제 데이터가 저장되는 물리적 세그먼트 번호
 
     struct ChangeHead_lo {
-        uint8_t opLayer; /// [5: Undo/Tx, 10: Index, 11: DataBlock...]
+        uint8_t opLayer;        /// [5: Undo/Tx, 10: Index, 11: DataBlock...]
         uint8_t opCode;
 
         uint16_t cls;           /// * Block-Class ID ~ may contain usn(undo segment number)
@@ -52,10 +48,9 @@ namespace ora {
         uint8_t seq;            /// Change Sequence Number : 동일한 Redo Record 또는 동일 SCN 내에서 해당 체인지 벡터의 순번
         uint8_t ctype;          /// * Change Type
         uint16_t obj_low;       /// * Data-Object-Id-Low
-
     };
-    struct ChangeHead_ext_lo {
 
+    struct ChangeHead_ext_lo {
         uint8_t con_id;
         uint8_t flag[3];
         uint32_t aux;
@@ -63,31 +58,7 @@ namespace ora {
 
 #pragma pack(pop)
 
-    std::string to_string(BlockClassType cls) {
-        switch (cls) {
-            case BlockClassType::DataBlock:             return {"Data_block"};
-            case BlockClassType::SortBlock:             return {"Sort_block"};
-            case BlockClassType::SaveUndoBlock:         return {"Save_undo_block"};
-            case BlockClassType::SegmentHeader:         return {"Segment_header"};
-            case BlockClassType::SaveUndoHeader:        return {"Save_undo_header"};
-            case BlockClassType::FreeListBlock:         return {"Free_list_block"};
-            case BlockClassType::ExtentMapBlock:        return {"Extent_map_block"};
-            case BlockClassType::Bmb1st:                return {"1st_level_bmb"};
-            case BlockClassType::Bmb2nd:                return {"2nd_level_bmb"};
-            case BlockClassType::Bmb3rd:                return {"3rd_level_bmb"};
-            case BlockClassType::BitmapBlock:           return {"Bitmap_block"};
-            case BlockClassType::BitmapIndexBlock:      return {"Bitmap_index_block"};
-            case BlockClassType::FileHeaderBlock:       return {"File_header_block"};
-            case BlockClassType::DeferredRollbackBlock: return {"Deferred_rollback_block"};
-            case BlockClassType::SystemUndoHeader:      return {"SYSTEM_Undo_header"};
-            case BlockClassType::SystemUndoBlock:       return {"SYSTEM_Undo_block"};
-            case BlockClassType::UndoHeader:            return {"Undo_Header"};
-            case BlockClassType::UndoBlock:             return {"Undo_Block"};
-            default:                                    return {"Unknown"};
-        }
-    }
-
-    static auto decode_cls(uint16_t c0, bool isLittle) noexcept {
+    inline static auto decode_cls(const uint16_t c0, const bool isLittle) noexcept {
 
         auto c = coral::decode(c0, isLittle);
 
@@ -130,110 +101,56 @@ namespace ora {
         }
     }
 
-    std::string to_string(ChangeHead& h) {
+    inline static auto decode_afn_obj(const uint32_t ao, const bool isLittle) noexcept {
 
-        const auto desc = opCode_string(h.opLayer, h.opCode);
-        const auto ctype_str = cType_string(h.opLayer, h.opCode, h.ctype);
+        const auto c = coral::decode(ao, isLittle);
 
-        const std::string con_str = h.con_id.has_value()
-                                        ? fmt::format("ConID: {}", *h.con_id)
-                                        : "";
+        uint16_t afn  = (c      ) & 0xffff;
+        uint16_t obj_h =(c >> 16) & 0xffff;
 
-        const std::string usn_str = h.usn != 0
-                                        ? fmt::format("USN: {}", h.usn)
-                                        : "";
-
-        return fmt::format(
-          "{}  ├─ {}{}\n"
-            "  ├─ {}\n"
-            "  ├─ CLS: {}\n"
-            "  ├─ AFN: {} [RFN: {} Block#: {}] = (DBA: {:#010x}) {}\n"
-            "  ├─ Obj: {} ({:#06x}.{:#06x})\n"
-            "  └─ SCN: {} Seq: {} {}",
-          coral::Rev_st, desc, coral::Rev_End,
-          ctype_str,
-          to_string(h.cls),
-          h.afn, h.rfile_no, h.block_no, h.dba, usn_str,
-          h.obj_id, h.obj_high, h.obj_low,
-          toHex(h.scn), h.seq,
-          con_str
-        );
+        return std::make_tuple(afn, obj_h);
     }
 
-    static auto decode_afn_obj(uint32_t ao, bool isLittle) noexcept {
-
-       const auto c = coral::decode(ao, isLittle);
-
-       uint16_t afn  = (c      ) & 0xffff;
-       uint16_t obj_h =(c >> 16) & 0xffff;
-
-       return std::make_tuple(afn, obj_h);
-    }
-
-    static ChangeHead decode( const ChangeHead_lo& c,
-                              const std::optional<ChangeHead_ext_lo> ext,
-                              const bool isLittle) {
-
+    inline static auto decode(const ChangeHead_lo &ch,
+                              const std::optional<ChangeHead_ext_lo> &ch_ext,
+                              const tcb::span<const char> span,
+                              const bool isLittle) -> ChangeHead {
         using coral::decode;
 
         ChangeHead o;
 
-        o.opLayer = decode(c.opLayer, isLittle);
-        o.opCode = decode(c.opCode, isLittle);
-        o.seq = decode(c.seq, isLittle);
-        o.ctype = decode(c.ctype, isLittle);
+        o.size = span.size();
+        o.span = span;
+
+        o.opLayer = decode(ch.opLayer, isLittle);
+        o.opCode = decode(ch.opCode, isLittle);
+        o.seq = decode(ch.seq, isLittle);
+        o.ctype = decode(ch.ctype, isLittle);
 
         // ----------------------------------------
-        const auto [cls_type, usn] = decode_cls(c.cls, isLittle);
+        const auto [cls_type, usn] = decode_cls(ch.cls, isLittle);
         o.cls = cls_type;
         o.usn = usn;
 
         // ----------------------------------------
-        const auto dba = decode(c.dba, isLittle);
+        const auto dba = decode(ch.dba, isLittle);
         o.dba = dba;
         o.rfile_no =  dba >> 22;           // 10 bit
         o.block_no =  dba & 0x003FFFFFu;   // 22 bit
 
+        // ----------------------------------------
+        o.scn = decode_SCN(ch.scn, isLittle);
 
         // ----------------------------------------
-        o.scn = decode_SCN(c.scn, isLittle);
-
-        // ----------------------------------------
-        const auto [afn, obj_h] = decode_afn_obj(c.afn_obj, isLittle);
+        const auto [afn, obj_h] = decode_afn_obj(ch.afn_obj, isLittle);
         o.afn       = afn;
         o.obj_high  = obj_h;
-        o.obj_low   = decode(c.obj_low, isLittle);
-        o.obj_id = (o.obj_high << 16) | o.obj_low;
+        o.obj_low   = decode(ch.obj_low, isLittle);
+        o.obj_id    = (o.obj_high << 16) | o.obj_low;
 
         // ----------------------------------------
-        if (!ext.has_value())
-            o.con_id = std::nullopt;
-        else
-            o.con_id = decode(ext->con_id, isLittle);
+        o.con_id = ch_ext ? std::make_optional(decode(ch_ext->con_id, isLittle)) : std::nullopt;
+
         return o;
-    }
-
-
-    ChangeHead ChangeHead_of(const tcb::span<const char> &raw,
-                             const bool over12c,
-                             const bool isLittle) {
-
-
-        constexpr auto old_sz = sizeof(ChangeHead_lo);
-        constexpr auto ext_sz = sizeof(ChangeHead_ext_lo);
-
-        if (raw.size() < old_sz + (over12c ? ext_sz : 0))
-            throw std::out_of_range("not enough data");
-
-        ChangeHead_lo o;
-        std::memcpy(&o, raw.data(), old_sz);
-
-        if (!over12c)
-            return decode(o, std::nullopt, isLittle);
-
-        ChangeHead_ext_lo e;
-        std::memcpy(&e, raw.data() + old_sz , ext_sz);
-
-        return decode(o, e, isLittle);
     }
 }

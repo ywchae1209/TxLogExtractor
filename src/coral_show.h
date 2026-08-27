@@ -52,7 +52,7 @@ namespace coral {
         b_magenta
     };
 
-    inline void show_HexDump(const tcb::span<const char> &raw, size_t max_rows = 8) {
+    inline void show_HexDump(const tcb::span<const char> &raw, std::ostream& os = std::cout, size_t rows = 8) {
 
         static constexpr std::array<char[2], 256> hex_lut = []() {
             std::array<char[2], 256> lut{};
@@ -66,49 +66,47 @@ namespace coral {
 
         constexpr size_t colors_sz = 4;
 
-        size_t max_groups = std::numeric_limits<size_t>::max();
-        if (max_rows > 0) {
-            if (max_rows > std::numeric_limits<size_t>::max() / 8) {
-                max_groups = std::numeric_limits<size_t>::max();
-            } else {
-                max_groups = max_rows * 8;
-            }
-        }
-
+        size_t max_groups = rows * 8;           //
         const size_t total_groups = raw.size() / 2;
+        const auto odd = raw.size() % 2 == 1;
+
         const size_t limit = std::min(total_groups, max_groups);
 
-        std::cout << "---------------------------------------\n";
+        os << "  ---------------------------------------\n";
+        if (raw.size() == 0) return;
 
         size_t n = 0;
+        os << "  ";
         for (size_t i = 0; i < limit * 2; i += 2) {
-            uint8_t b1 = static_cast<uint8_t>(raw[i]);
-            uint8_t b2 = static_cast<uint8_t>(raw[i + 1]);
 
-            std::cout << colors[n & (colors_sz - 1)];
-
-            std::cout.write(hex_lut[b1], 2);
-            std::cout.write(hex_lut[b2], 2);
-
-            std::cout.write(reset_color, 5);
+            os << colors[n & (colors_sz - 1)];
+            const auto b1 = static_cast<uint8_t>(raw[i]);
+            const auto b2 = static_cast<uint8_t>(raw[i + 1]);
+            os.write(hex_lut[b1], 2);
+            os.write(hex_lut[b2], 2);
+            os.write(reset_color, 5);
 
             n++;
             if ((n & 7) == 0) {
-                std::cout.put('\n');
+                os << (n < limit
+                           ? "\n  "
+                           : (i + 2 >= limit * 2) && !odd
+                                 ? "\n"
+                                 : "\n  ");
             }
         }
 
-        bool odd_processed = false;
-        if (raw.size() % 2 == 1 && n < max_groups) {
+        if (odd && n < max_groups) {
             const uint8_t last = static_cast<uint8_t>(raw.back());
-
-            std::cout << colors[n & (colors_sz - 1)];
-            std::cout.write(hex_lut[last], 2);
-            std::cout.write(reset_color, 5);
-            odd_processed = true;
+            os << colors[n & (colors_sz - 1)];
+            os.write(hex_lut[last], 2);
+            os.write(reset_color, 5);
+            os << "\n";
+            return;
         }
-        if ((n & 7) != 0 || odd_processed) {
-            std::cout.put('\n');
+
+        if ((n & 7) != 0 ) {
+            os.put('\n');
         }
     }
 

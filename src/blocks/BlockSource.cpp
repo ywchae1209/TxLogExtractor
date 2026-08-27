@@ -1,5 +1,5 @@
 #include "BlockSource.h"
-#include "coral_result.h"
+#include "../coral_result.h"
 
 namespace ora {
 
@@ -33,7 +33,7 @@ namespace ora {
         if (in.gcount() != fh.block_sz)
             return Err_of<Block>("[read_RedoHead] Fail to read block_sz,  but " + std::to_string(in.gcount()) );
 
-        auto b = Block_of(buf, fh.block_sz, fh.isLittle);
+        auto b = Block_of(buf, fh.isLittle);
 
         return Ok_of(std::move(b));
     }
@@ -47,13 +47,9 @@ namespace ora {
         return Ok_of(std::move(rh));
     }
 
-    FileBlockSource::FileBlockSource(
-        const std::string &path,
-        const bool showBlock,
-        const size_t buffer_sz
-    ) : drain_limit{buffer_sz}, showBlock(showBlock)
-    {
-
+    FileBlockSource::FileBlockSource(const std::string &path, const uint8_t showBlock, const size_t buffer_sz)
+        : showBlock(showBlock)
+          , drain_limit{buffer_sz} {
         auto f = std::ifstream(path, std::ios::binary);
         if (!f) throw std::runtime_error("Cannot open file: " + path);
 
@@ -71,27 +67,38 @@ namespace ora {
         log_seq_no = rb.get().head.log_seq_no;
         fileHead = std::move(fh.get());
         redoHead = std::move(rh.get());
+        ctx = BlockCtx{
+            fileHead.isLittle,
+            redoHead.sourceInfo.compat_ver.major >= 12,
+            fileHead.block_sz,
+            redoHead.writeInfo.low_scn,
+            redoHead.writeInfo.next_scn
+        };
     }
 
     void FileBlockSource::drain() {
 
-        const auto low = redoHead.writeInfo.low_scn;
-        const auto top = redoHead.writeInfo.next_scn;
+        const auto& ctx = getCtx();
 
-        const auto block_sz = fileHead.block_sz;
-        read_buf.resize(block_sz);
+        const auto showReason = (showBlock & 2) == 2;
+
+        read_buf.resize(ctx.block_sz);
 
         for (auto i = 0; i < drain_limit && file; ++i) {
-            file.read(read_buf.data(), block_sz);
+            file.read(read_buf.data(), ctx.block_sz);
 
-            if (file.gcount() < block_sz)
-                break; // exception. this must not happen
+            const auto readBytes = file.gcount();
+            if (readBytes == 0) { fmt::println("-- End of file"); break; }
+            if (readBytes < ctx.block_sz)
+                throw std::runtime_error(fmt::format("-- File block is small. idx {} read {}", i, file.gcount()));
 
-            auto b = Block_of(read_buf, block_sz, fileHead.isLittle, low, top);
+            auto b = Block_of(read_buf, ctx, showReason);
 
-            if (b.head.log_seq_no != this->log_seq_no)
-                break;  // end of log-seq
-
+            if (b.head.log_seq_no != this->log_seq_no) {
+                fmt::println(std::cerr, "-- end of same LSN({}) blocks. block #{} (LSN:{})",
+                             log_seq_no, b.head.block_no, b.head.log_seq_no);
+                break;
+            }
             out_buffer.push_back(b);
         }
     }
@@ -106,7 +113,7 @@ namespace ora {
 
         auto b = out_buffer.front();
 
-        if (showBlock)
+        if ((showBlock & 1) == 1)
             show(b);
 
         out_buffer.pop_front();

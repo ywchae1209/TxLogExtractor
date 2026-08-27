@@ -1,8 +1,16 @@
+
 #pragma once
 
+#include <vector>
 #include <optional>
+#include <string>
+
+#include "tcb/span.hpp"
+#include "../ora_layout.h"
+
 namespace ora {
 
+    // --------------------------------------------------------------------------------
     enum class BlockClassType {
         Unknown = 0,           ///
         DataBlock,             ///  1: Data block         - 일반 테이블/인덱스 데이터 블록
@@ -25,9 +33,13 @@ namespace ora {
         UndoBlock,             /// 18, 20...: Undo block  - 일반 Undo 데이터 블록 (USN >= 1)
     };
 
-    std::string to_string(BlockClassType cls);
 
+    // --------------------------------------------------------------------------------
     struct ChangeHead {
+
+        tcb::span<const char> span;
+
+        size_t size;
 
         uint8_t  opLayer;
         uint8_t  opCode;
@@ -35,30 +47,55 @@ namespace ora {
         BlockClassType cls;
         uint16_t usn;                   //// undo segment number ( CLS >= 15)
 
-        // --------------------------------------------------------------------------------
         uint16_t afn;                   //// DB전체에서 유일한 데이터 파일번호
 
-        // --------------------------------------------------------------------------------
         uint32_t obj_id;                //// 변경대상 object 판정용 ( truncate되면 변경됨)
         uint16_t obj_low;
         uint16_t obj_high;
 
-
-        // --------------------------------------------------------------------------------
         uint32_t dba;                   //// Data Block Address
         uint16_t rfile_no;              //// 테이블 스페이스 내의 파일번호(10비트)
         uint32_t block_no;              ///
 
-        // --------------------------------------------------------------------------------
         SCN      scn;                   //// ignore-wrap-high
         uint8_t  seq;                   ////
 
-        // --------------------------------------------------------------------------------
         uint8_t  ctype;                 //// Change Type
+
         std::optional<uint8_t>  con_id; //// Container ID
     };
 
-    std::string to_string(ChangeHead& h);
+    // --------------------------------------------------------------------------------
+    struct LengthVector {
+        std::vector<uint16_t> sizes;
+        std::vector<tcb::span<const char> > spans;
+    };
 
-    ChangeHead ChangeHead_of(const tcb::span<const char> &raw, bool over12c, bool isLittle);
+    // --------------------------------------------------------------------------------
+    struct Change {
+        ChangeHead change_head;
+        LengthVector length_vector;
+    };
+
+    // --------------------------------------------------------------------------------
+    auto Changes_of(
+        const RBA &rba,
+        const tcb::span<const char> &raw,
+        bool over12c,
+        bool isLittle) -> std::vector<Change>;
+
+    // --------------------------------------------------------------------------------
+    auto decode_LengthVector(const tcb::span<const char> &raw,
+                             bool isLittle) -> std::tuple<tcb::span<const char>, LengthVector>;
+
+    auto decode_ChangeHead(const tcb::span<const char> &raw,
+                           bool over12c,
+                           bool isLittle) -> std::tuple<tcb::span<const char>, ChangeHead>;
+
+    // --------------------------------------------------------------------------------
+    std::string to_string(BlockClassType cls);
+    std::string to_string(const ChangeHead& h);
+
+    void show(const LengthVector& lv);
+
 }
