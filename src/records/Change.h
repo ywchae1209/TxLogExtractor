@@ -85,14 +85,6 @@ namespace ora {
         bool isLittle) -> std::vector<Change>;
 
     // --------------------------------------------------------------------------------
-    auto decode_LengthVector(const tcb::span<const char> &raw,
-                             bool isLittle) -> std::tuple<tcb::span<const char>, LengthVector>;
-
-    auto decode_ChangeHead(const tcb::span<const char> &raw,
-                           bool over12c,
-                           bool isLittle) -> std::tuple<tcb::span<const char>, ChangeHead>;
-
-    // --------------------------------------------------------------------------------
     std::string to_string(BlockClassType cls);
     std::string to_string(const ChangeHead& h);
 

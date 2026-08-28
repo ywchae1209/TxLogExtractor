@@ -5,7 +5,7 @@
 namespace ora {
 
     // --------------------------------------------------------------------------------
-    auto decode_ChangeHead(const tcb::span<const char> &raw,
+    static auto decode_ChangeHead(const tcb::span<const char> &raw,
                            const bool over12c,
                            const bool isLittle) -> std::tuple<tcb::span<const char>, ChangeHead> {
 
@@ -44,7 +44,7 @@ namespace ora {
     }
 
     using coral::decode;
-    auto decode_LengthVector(const tcb::span<const char> &raw,
+    static auto decode_LengthVector(const tcb::span<const char> &raw,
                              const bool isLittle) -> std::tuple<tcb::span<const char>, LengthVector> {
 
         if (raw.size() < sizeof(uint16_t))
@@ -56,7 +56,6 @@ namespace ora {
         const auto lv_len = decode(lv0, isLittle);
 
         if (lv_len == 0) {
-            // coral::show_HexDump(raw, std::cerr);
             return std::make_tuple(raw.subspan(4), LengthVector{});
         }
 

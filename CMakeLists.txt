@@ -6,15 +6,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# as library
 ################################################################################
 #add_library(TxLogCore STATIC       #or SHARED
-#        src/FileHead.cpp
-#        src/RedoHead.cpp
-#        src/RecordHead.cpp
-#        src/Block.cpp
-#        src/BlockSource.cpp
-#        src/RecordSource.cpp
-#        src/OpCodes.cpp
+#        src/blocks/FileHead.cpp
+#        src/blocks/RedoHead.cpp
+#        src/blocks/Block.cpp
+#        src/blocks/BlockSource.cpp
+#        src/blocks/RecordBound.cpp
+#        src/records/Record.cpp
+#        src/records/Change.cpp
+#        src/records/RecordSource.cpp
+#        src/records/ora_opCodes.cpp
 #)
 #
 #target_include_directories(TxLogCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/external/include"

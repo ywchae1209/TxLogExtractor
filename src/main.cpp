@@ -65,14 +65,15 @@ void shows(const std::string &filename,
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cout << "usage: " << argv[0]
-        << "--i --d --b --ob --s <filename1> <filename2> ...\n"
-        <<
-           "--i :: info of change head\n"
+        << " --i --d --b --ob --s <filename1> <filename2> ...\n"
+        << "--i :: info of change head\n"
+           "--r :: show reson in RecordBound logic\n"
            "--d :: show dump of Record\n"
            "--s :: short (only 1000 Records)\n"
            "--b :: show Block\n"
            "--ob :: show only Block\n"
         ;
+
         return 1;
     }
 

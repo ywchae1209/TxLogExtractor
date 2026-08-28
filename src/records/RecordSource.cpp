@@ -138,7 +138,8 @@ namespace ora {
             // --------------------------------------------------------------------------------
             bool first = true;
             while ( need > 0 ) {
-                Block b = getOrThrow(format("fill_Records: B #{}.@{} len: {} ", block.block_no(), start, bound.len));
+                Block b = getOrThrow(format("not enough for complete Record: #{}.@{} len:{} need:{}",
+                    rba.block_no, rba.offset, bound.len, need));
                 const auto fbs = fairBounds(b, lwn_ctx, true);
 
                 if (first) {

@@ -414,11 +414,21 @@ namespace ora {
 
     constexpr RawCType rawCTypes[] = {
         // =========================================================================
-        // LAYER 4: KTB (Kernel Transaction Block)
+        // LAYER 4: KTB (Kernel Transaction Block) - 트랜잭션 블록 제어
         // =========================================================================
+        // --- OP 4.1: Block Cleanout ---
         {4, 1, 0, "Normal Block Cleanout (일반 블록 클린아웃)"},
         {4, 1, 1, "Delayed Block Cleanout (지연 블록 클린아웃)"},
         {4, 1, 2, "Commit Cleanout (커밋 시점 블록 클린아웃)"},
+        {4, 1, 64, "KTB_CLEANOUT_LOGGING (블록 클린아웃 로깅)"},
+        {4, 1, 66, "KTB_CLEANOUT_COMMIT_LOGGING (커밋 클린아웃 로깅)"},
+        {4, 1, 128, "KTB_CLEANOUT_REDO (블록 클린아웃 리두)"},
+        {4, 1, 130, "KTB_CLEANOUT_COMMIT_REDO (커밋 시점 블록 클린아웃 리두)"},
+        {4, 1, 192, "KTB_CLEANOUT_ALL_REDO (전체 블록 클린아웃 리두)"},
+
+        // --- OP 4.6: Commit-Time Block Cleanout / Flags Change ---
+        {4, 6, 0, "KTB_FLAGS_CHANGE (트랜잭션 블록 플래그 변경)"},
+        {4, 6, 128, "KTB_FLAGS_CHANGE_REDO (트랜잭션 블록 플래그 변경 리두)"},
 
         // =========================================================================
         // LAYER 5: KTU (Kernel Transaction Undo) - 트랜잭션 및 언두 관리
@@ -429,6 +439,8 @@ namespace ora {
         {5, 1, 2, "KTU_UB_CR (Consistent Read/일기 일관성 생성을 위한 언두)"},
         {5, 1, 3, "KTU_UB_PARTIAL_ROLLBACK (부분 롤백/SAVEPOINT 롤백)"},
         {5, 1, 4, "KTU_UB_PARALLEL_ROLLBACK (병렬 복구/Fast-Start Parallel Rollback)"},
+        {5, 1, 128, "KTU_UB_REDO (언두 블록 변경 리두)"},
+        {5, 1, 129, "KTU_UB_ROLLBACK_REDO (롤백 언두 적용 리두)"},
 
         // --- OP 5.2 (KTURDH): Update Rollback Segment Header ---
         {5, 2, 0, "KTU_URDH_NORMAL (언두 세그먼트 헤더 상태 업데이트)"},
@@ -450,6 +462,7 @@ namespace ora {
 
         // --- OP 5.6 (KTUIRB): Rollback Record Index in Undo Block ---
         {5, 6, 0, "KTU_IRB_NORMAL (언두 블록 내 레코드 인덱스 롤백)"},
+        {5, 6, 128, "KTU_IRB_REDO (언두 블록 내 인덱스 롤백 리두)"},
 
         // --- OP 5.7 (KTUUBG): Begin Transaction (Transaction Table Update) ---
         {5, 7, 0, "KTU_UBG_NORMAL (일반 트랜잭션 시작 - Tx 슬롯 할당)"},
@@ -478,6 +491,7 @@ namespace ora {
 
         // --- OP 5.24 (KTURLGU): Relog Change ---
         {5, 24, 0, "KTU_LGU_NORMAL (언두 재기록/Relog 변경)"},
+        {5, 24, 128, "KTU_LGU_REDO (언두 재기록 리두)"},
 
         // --- OP 5.26 (KTUUST): Undo Stopper Undo Callback ---
         {5, 26, 0, "KTU_UST_NORMAL (언두 롤백 중단 및 콜백 처리)"},
@@ -497,18 +511,101 @@ namespace ora {
         // =========================================================================
         // LAYER 10: KDI (Kernel Data Index) - 인덱스 조작
         // =========================================================================
+        // --- OP 10.2: Insert Leaf Row ---
         {10, 2, 0, "Normal Leaf Row Insert (일반 인덱스 엔트리 삽입)"},
         {10, 2, 1, "Direct Load Leaf Insert (Direct Load 인덱스 삽입)"},
         {10, 2, 2, "Unique Key Check Insert (유니크 키 제약 검증 삽입)"},
+        {10, 2, 128, "KDI_INSERT_LEAF_REDO (인덱스 리프 행 삽입 리두)"},
+        {10, 2, 130, "KDI_INSERT_LEAF_CR_REDO (인덱스 리프 행 삽입 CR 리두)"},
+
+        // --- OP 10.3: Purge Leaf Row ---
         {10, 3, 0, "Normal Leaf Row Purge (일반 인덱스 리프 행 퍼지)"},
+        {10, 3, 2, "KDI_PURGE_LEAF_CR (인덱스 리프 행 퍼지 CR)"},
+
+        // --- OP 10.4: Mark Leaf Row Deleted ---
         {10, 4, 0, "Normal Leaf Row Delete Mark (일반 인덱스 엔트리 삭제 표시)"},
         {10, 4, 1, "Purge Leaf Row (인덱스 엔트리 영구 삭제)"},
         {10, 4, 2, "Rollback Leaf Row Delete (인덱스 엔트리 삭제 취소/롤백)"},
+        {10, 4, 128, "KDI_DELETE_LEAF_REDO (인덱스 리프 행 삭제 표시 리두)"},
+        {10, 4, 130, "KDI_DELETE_LEAF_CR_REDO (인덱스 리프 행 삭제 CR 리두)"},
+
+        // --- OP 10.5: Restore Leaf Row ---
         {10, 5, 0, "Restore Leaf Row (인덱스 리프 행 복원 및 복구)"},
+        {10, 5, 2, "KDI_RESTORE_LEAF_CR (인덱스 리프 행 복원 CR)"},
+        {10, 5, 128, "KDI_RESTORE_LEAF_REDO (인덱스 리프 행 복원 리두)"},
+        {10, 5, 130, "KDI_RESTORE_LEAF_CR_REDO (인덱스 리프 행 복원 CR 리두)"},
+
+        // --- OP 10.6: Update / Lock Leaf Row ---
+        {10, 6, 0, "KDI_UPDATE_LEAF (인덱스 리프 엔트리 수정)"},
+        {10, 6, 2, "KDI_UPDATE_LEAF_CR (인덱스 리프 수정 CR)"},
+        {10, 6, 128, "KDI_UPDATE_LEAF_REDO (인덱스 리프 수정 리두)"},
+        {10, 6, 130, "KDI_UPDATE_LEAF_CR_REDO (인덱스 리프 수정 CR 리두)"},
+
+        // --- OP 10.7: Leaf Split ---
+        {10, 7, 0, "KDI_LEAF_SPLIT (인덱스 리프 블록 분할/Split)"},
+        {10, 7, 2, "KDI_LEAF_SPLIT_CR (인덱스 리프 블록 분할 CR)"},
+        {10, 7, 128, "KDI_LEAF_SPLIT_REDO (인덱스 리프 블록 분할 리두)"},
+
+        // --- OP 10.8: Branch Insert ---
+        {10, 8, 0, "KDI_BRANCH_INSERT (인덱스 브랜치 블록 엔트리 삽입)"},
+        {10, 8, 2, "KDI_BRANCH_INSERT_CR (인덱스 브랜치 엔트리 삽입 CR)"},
+        {10, 8, 128, "KDI_BRANCH_INSERT_REDO (인덱스 브랜치 엔트리 삽입 리두)"},
+
+        // --- OP 10.9: Branch Delete ---
+        {10, 9, 0, "KDI_BRANCH_DELETE (인덱스 브랜치 블록 엔트리 삭제)"},
+        {10, 9, 128, "KDI_BRANCH_DELETE_REDO (인덱스 브랜치 엔트리 삭제 리두)"},
+
+        // --- OP 10.10: Branch Split ---
+        {10, 10, 0, "KDI_BRANCH_SPLIT (인덱스 브랜치 블록 분할)"},
+
+        // --- OP 10.11: Root Init ---
+        {10, 11, 0, "KDI_ROOT_INIT (인덱스 루트 블록 초기화/생성)"},
+        {10, 11, 2, "KDI_ROOT_INIT_CR (인덱스 루트 블록 초기화 CR)"},
+        {10, 11, 128, "KDI_ROOT_INIT_REDO (인덱스 루트 블록 초기화 리두)"},
+        {10, 11, 130, "KDI_ROOT_INIT_CR_REDO (인덱스 루트 블록 초기화 CR 리두)"},
+
+        // --- OP 10.12: Branch Update ---
+        {10, 12, 0, "KDI_BRANCH_UPDATE (인덱스 브랜치 블록 엔트리 수정)"},
+
+        // --- OP 10.13: Leaf Consolidate ---
+        {10, 13, 0, "KDI_LEAF_CONSOLIDATE (인덱스 리프 블록 병합/Consolidate)"},
+
+        // --- OP 10.14: Branch Consolidate ---
+        {10, 14, 0, "KDI_BRANCH_CONSOLIDATE (인덱스 브랜치 블록 병합)"},
+
+        // --- OP 10.15: Unlink Leaf ---
+        {10, 15, 0, "KDI_UNLINK_LEAF (인덱스 리프 블록 연결 해제)"},
+        {10, 15, 128, "KDI_UNLINK_LEAF_REDO (인덱스 리프 블록 연결 해제 리두)"},
+
+        // --- OP 10.16: Unlink Branch ---
+        {10, 16, 0, "KDI_UNLINK_BRANCH (인덱스 브랜치 블록 연결 해제)"},
+
+        // --- OP 10.17: Clear Flags ---
+        {10, 17, 0, "KDI_LEAF_CLEAR_FLAGS (인덱스 리프 블록 플래그 클리어)"},
+
+        // --- OP 10.18: Leaf Compression / Fast Clean ---
         {10, 18, 0, "Index Leaf Compression/Fast Clean (인덱스 리프 블록 압축 및 재정비)"},
         {10, 18, 2, "Index Fast Split / Direct Reorg (인덱스 고속 분할 및 재구성)"},
-        {10, 35, 0, "Index Advanced Compression Redo (인덱스 고급 압축 변경)"},
 
+        // --- OP 10.19: Bitmap MinMax ---
+        {10, 19, 0, "KDI_BITMAP_MINMAX (비트맵 인덱스 Min/Max 조작)"},
+        {10, 19, 128, "KDI_BITMAP_MINMAX_REDO (비트맵 인덱스 Min/Max 조작 리두)"},
+
+        // --- OP 10.20: Leaf Resize ---
+        {10, 20, 0, "KDI_LEAF_RESIZE (인덱스 리프 엔트리 크기 재조정)"},
+
+        // --- OP 10.25: Reuse Block ---
+        {10, 25, 0, "KDI_REUSE_BLOCK (인덱스 재사용 블록 초기화)"},
+        {10, 25, 2, "KDI_REUSE_BLOCK_CR (인덱스 재사용 블록 초기화 CR)"},
+
+        // --- OP 10.30: Advanced Compress ---
+        {10, 30, 0, "KDI_ADVANCED_COMPRESS (인덱스 고급 압축 적용)"},
+
+        // --- OP 10.31: In-Memory Index ---
+        {10, 31, 0, "KDI_INMEMORY_INDEX (In-Memory 인덱스 메타데이터 변경)"},
+
+        // --- OP 10.35: Advanced Compression Redo ---
+        {10, 35, 0, "Index Advanced Compression Redo (인덱스 고급 압축 변경)"},
 
         // =========================================================================
         // LAYER 11: KDO (Kernel Data Objects) - 행(Row) 수준 접근 및 조작
@@ -527,17 +624,34 @@ namespace ora {
         {11, 2, 4, "KDO_IRP_CLUSTER (클러스터 테이블 행 삽입)"},
         {11, 2, 5, "KDO_IRP_SUPPLE_LOG (Supplemental Logging 추가 데이터 수집 삽입)"},
         {11, 2, 8, "KDO_IRP_MULTI_PIECE (다중 조각 일할 삽입)"},
+        {11, 2, 64, "KDO_IRP_LOGGING (행 삽입 로깅)"},
+        {11, 2, 66, "KDO_IRP_CR_LOGGING (행 삽입 CR 로깅)"},
+        {11, 2, 128, "KDO_IRP_REDO (행 삽입 리두)"},
+        {11, 2, 130, "KDO_IRP_CR_REDO (행 삽입 CR 리두)"},
+        {11, 2, 192, "KDO_IRP_ALL_REDO (전체 행 삽입 리두)"},
 
         // --- OP 11.3 (KDODRP): Drop Row Piece ---
         {11, 3, 0, "KDO_DRP_NORMAL (일반 행 삭제 / Mark Delete)"},
         {11, 3, 1, "KDO_DRP_PURGE (빠른 삭제 및 공간 즉시 정제)"},
         {11, 3, 2, "KDO_DRP_CASCADE (연쇄/FK 삭제 조작)"},
         {11, 3, 4, "KDO_DRP_CLUSTER (클러스터 테이블 행 삭제)"},
+        {11, 3, 64, "KDO_DRP_LOGGING (행 삭제 로깅)"},
+        {11, 3, 66, "KDO_DRP_CR_LOGGING (행 삭제 CR 로깅)"},
+        {11, 3, 128, "KDO_DRP_REDO (행 삭제 리두)"},
+        {11, 3, 130, "KDO_DRP_CR_REDO (행 삭제 CR 리두)"},
+        {11, 3, 192, "KDO_DRP_ALL_REDO (전체 행 삭제 리두)"},
+        {11, 3, 194, "KDO_DRP_ALL_CR_REDO (전체 행 삭제 CR 리두)"},
 
         // --- OP 11.4 (KDOLKR): Lock Row Piece ---
         {11, 4, 0, "KDO_LKR_NORMAL (일반 행 수준 잠금 / Row Lock)"},
         {11, 4, 1, "KDO_LKR_SHARED (공유 행 잠금 / Cluster Key Lock)"},
         {11, 4, 2, "KDO_LKR_ROLLBACK (행 잠금 해제/롤백 조작)"},
+        {11, 4, 64, "KDO_LKR_LOGGING (행 잠금 로깅)"},
+        {11, 4, 66, "KDO_LKR_CR_LOGGING (행 잠금 CR 로깅)"},
+        {11, 4, 128, "KDO_LKR_REDO (행 잠금 리두)"},
+        {11, 4, 130, "KDO_LKR_CR_REDO (행 잠금 CR 리두)"},
+        {11, 4, 192, "KDO_LKR_ALL_REDO (전체 행 잠금 리두)"},
+        {11, 4, 194, "KDO_LKR_ALL_CR_REDO (전체 행 잠금 CR 리두)"},
 
         // --- OP 11.5 (KDOURP): Update Row Piece ---
         {11, 5, 0, "KDO_URP_NORMAL (일반 행 수정)"},
@@ -547,13 +661,21 @@ namespace ora {
         {11, 5, 4, "KDO_URP_OUT_OF_PLACE (비제자리/이동 수정)"},
         {11, 5, 8, "KDO_URP_MIGRATED (마이그레이션된 Row 수정)"},
         {11, 5, 16, "KDO_URP_SUPPLE_LOG (Supplemental Logging 용 Update 기록)"},
+        {11, 5, 64, "KDO_URP_LOGGING (행 수정 로깅)"},
+        {11, 5, 66, "KDO_URP_CR_LOGGING (행 수정 CR 로깅)"},
+        {11, 5, 128, "KDO_URP_REDO (행 수정 리두)"},
+        {11, 5, 130, "KDO_URP_CR_REDO (행 수정 CR 리두)"},
+        {11, 5, 192, "KDO_URP_ALL_REDO (전체 행 수정 리두)"},
+        {11, 5, 194, "KDO_URP_ALL_CR_REDO (전체 행 수정 CR 리두)"},
 
         // --- OP 11.6 (KDOORP): Overwrite Row Piece ---
         {11, 6, 0, "KDO_ORP_NORMAL (행 데이터 덮어쓰기)"},
+        {11, 6, 64, "KDO_ORP_LOGGING (행 데이터 덮어쓰기 로깅)"},
 
         // --- OP 11.7 (KDOMFC): Manipulate First Column ---
         {11, 7, 0, "KDO_MFC_ADD_FIRST (첫 번째 컬럼 추가 조작)"},
         {11, 7, 1, "KDO_MFC_DEL_FIRST (첫 번째 컬럼 삭제 조작)"},
+        {11, 7, 2, "KDO_MFC_CR (첫 번째 컬럼 변경 CR)"},
 
         // --- OP 11.8 (KDOCFA): Change Forwarding Address ---
         {11, 8, 0, "KDO_CFA_NORMAL (Row Migration 발생 시 포워딩 주소 변경)"},
@@ -563,14 +685,24 @@ namespace ora {
 
         // --- OP 11.10 (KDOSKL): Set Key Links ---
         {11, 10, 0, "KDO_SKL_NORMAL (클러스터 키 연결 포인터 변경)"},
+        {11, 10, 2, "KDO_SKL_CR (클러스터 키 연결 포인터 변경 CR)"},
+        {11, 10, 64, "KDO_SKL_LOGGING (클러스터 키 포인터 변경 로깅)"},
+        {11, 10, 66, "KDO_SKL_CR_LOGGING (클러스터 키 포인터 변경 CR 로깅)"},
 
         // --- OP 11.11 (KDOQMI): Quick Multi-Insert ---
         {11, 11, 0, "KDO_QMI_NORMAL (대량 고속 일괄 삽입 - INSERT SELECT 등)"},
         {11, 11, 1, "KDO_QMI_DIRECT (Direct Path 고속 일괄 삽입)"},
         {11, 11, 2, "KDO_QMI_MULTI_PIECE (대량 고속 다중 조각/부분 일괄 삽입)"},
+        {11, 11, 64, "KDO_QMI_LOGGING (대량 고속 일괄 삽입 로깅)"},
+        {11, 11, 66, "KDO_QMI_CR_LOGGING (대량 고속 일괄 삽입 CR 로깅)"},
+        {11, 11, 128, "KDO_QMI_REDO (대량 고속 일괄 삽입 리두)"},
+        {11, 11, 130, "KDO_QMI_CR_REDO (대량 고속 일괄 삽입 CR 리두)"},
+        {11, 11, 194, "KDO_QMI_ALL_CR_REDO (대량 고속 일괄 삽입 전체 CR 리두)"},
 
         // --- OP 11.12 (KDOQMD): Quick Multi-Delete ---
         {11, 12, 0, "KDO_QMD_NORMAL (대량 고속 일괄 삭제)"},
+        {11, 12, 2, "KDO_QMD_CR (대량 고속 일괄 삭제 CR)"},
+        {11, 12, 66, "KDO_QMD_CR_LOGGING (대량 고속 일괄 삭제 CR 로깅)"},
 
         // --- OP 11.13 (KDOTBF): Toggle Block Header Flags ---
         {11, 13, 0, "KDO_TBF_NORMAL (데이터 블록 헤더 플래그 변경)"},
@@ -578,30 +710,109 @@ namespace ora {
         // --- OP 11.16 (KDOLMN): LogMiner Support RM for RowPiece ---
         {11, 16, 0, "KDO_LMN_NORMAL (LogMiner 전용 Supplemental Logging Row)"},
         {11, 16, 1, "KDO_LMN_KEY_ONLY (LogMiner 키 컬럼 전용 로깅)"},
+        {11, 16, 2, "KDO_LMN_CR (LogMiner 전용 Row Piece CR)"},
+        {11, 16, 64, "KDO_LMN_LOGGING (LogMiner 전용 Row Piece 로깅)"},
 
         // --- OP 11.17 (KDOLLB): LogMiner Support for LOB ID Key ---
         {11, 17, 0, "KDO_LLB_NORMAL (LogMiner LOB ID 키 정보 로깅)"},
         {11, 17, 6, "LogMiner LOB Key Marker (LogMiner 전용 LOB 키 메타데이터 마커)"},
+        {11, 17, 134, "KDO_LLB_REDO_MARKER (LogMiner LOB Key Marker 리두)"},
 
         // --- OP 11.19 (KDOURA): LogMiner Support - Array Updates ---
         {11, 19, 0, "KDO_URA_NORMAL (LogMiner 배열 수정 로깅)"},
+        {11, 19, 64, "KDO_URA_LOGGING (LogMiner 배열 수정 추가 로깅)"},
+
+        // --- OP 11.20 (KDOSCR): Manipulate Column Level Security ---
+        {11, 20, 0, "KDO_SCR_NORMAL (컬럼 레벨 보안/VPD 메타데이터 변경)"},
+        {11, 20, 2, "KDO_SCR_CR (컬럼 레벨 보안 변경 CR)"},
+
+        // --- OP 11.22 (KDOSCL): Scale Out Row Processing ---
+        {11, 22, 0, "KDO_SCL_NORMAL (Scale-Out 지원 행 단위 분산 처리)"},
+
+        // --- OP 11.28 (KDOIMC): In-Memory Columnar Redo ---
+        {11, 28, 0, "KDO_IMC_NORMAL (In-Memory 컬럼 데이터 전환 리두)"},
 
         // =========================================================================
         // LAYER 13: KTS (Kernel Transaction Segment) - 세그먼트 및 공간 관리
         // =========================================================================
         {13, 1, 1, "Format Data Segment Header (데이터 세그먼트 헤더 포맷/초기화)"},
         {13, 5, 1, "Format Data Block (데이터 블록 포맷/초기화)"},
+
+        // --- OP 13.6: Set Link Value on Block ---
         {13, 6, 0, "Normal Link Value Set (일반 데이터 블록 프리리스트 링크 설정)"},
+        {13, 6, 2, "KTS_LINK_SET_CR (프리리스트 링크 설정 CR)"},
+        {13, 6, 64, "KTS_LINK_SET_LOGGING (프리리스트 링크 설정 로깅)"},
+        {13, 6, 66, "KTS_LINK_SET_CR_LOGGING (프리리스트 링크 설정 CR 로깅)"},
+
         {13, 7, 0, "Normal Freelist/Group Header Redo (일반 프리리스트/그룹 헤더 변경)"},
+
+        // --- OP 13.12: Format Bitmap Index Block ---
+        {13, 12, 7, "KTS_ALLOC_EXTENT (세그먼트 익스텐트 할당 포맷)"},
+
+        // --- OP 13.15: Redo for Index Map ---
+        {13, 15, 7, "KTS_FREE_EXTENT (세그먼트 익스텐트 해제/반납 포맷)"},
+
         {13, 17, 1, "Format Segment Header (세그먼트 헤더 포맷/초기화)"},
+
+        // --- OP 13.18: Format 1st-level Bitmap Block ---
         {13, 18, 1, "Format L1 BMB (L1 비트맵 블록 포맷/초기화)"},
+        {13, 18, 129, "Format L1 BMB Redo (L1 비트맵 블록 초기화 리두)"},
+
         {13, 19, 1, "Format L2 BMB (L2 비트맵 블록 포맷/초기화)"},
+
+        // --- OP 13.21: Format Data Block ---
         {13, 21, 1, "Format Data Block (데이터 블록 포맷/초기화)"},
+        {13, 21, 129, "Format Data Block Redo (데이터 블록 초기화 리두)"},
+
+        // --- OP 13.22: Redo for L1 BMB ---
         {13, 22, 0, "Normal L1 BMB Redo (일반 L1 비트맵 블록 변경)"},
+        {13, 22, 128, "Normal L1 BMB Extended Redo (L1 비트맵 블록 확장 변경 리두)"},
+
+        // --- OP 13.24: Redo for L2 BMB ---
         {13, 24, 0, "Normal L2 BMB Redo (일반 L2 비트맵 블록 변경)"},
+        {13, 24, 128, "Normal L2 BMB Extended Redo (L2 비트맵 블록 확장 변경 리두)"},
+
+        // --- OP 13.26: Redo for L3 BMB ---
+        {13, 26, 0, "KTS_L3_BMB_REDO (L3 비트맵 블록 변경)"},
+
+        // --- OP 13.28: Redo for Page Table Segment Header ---
         {13, 28, 0, "Normal Segment Header Redo (일반 세그먼트 헤더 변경)"},
+        {13, 28, 128, "Normal Segment Header Extended Redo (세그먼트 헤더 확장 변경 리두)"},
+
+        // --- OP 13.31: Shrink Redo for L1 ---
+        {13, 31, 0, "KTS_SPACE_HEADER (공간 관리 세그먼트 헤더 업데이트)"},
+
+        // --- OP 13.32: Shrink Redo for Segment Header ---
+        {13, 32, 0, "KTS_BITMAP_REORG (공간 비트맵 재구성/Reorg)"},
+
+        // --- OP 13.33: Shrink Redo for Extent Map Block ---
+        {13, 33, 0, "KTS_TRUNCATE_SEGMENT (세그먼트 Truncate 공간 반납)"},
+
+        // --- OP 13.36: Shrink Redo Related ---
+        {13, 36, 0, "KTS_HW_MARKER (High Water Mark 최신화 기록)"},
+
+        // --- OP 13.41 ~ 13.45: SecureFiles (NGLOB) Format Ops ---
+        {13, 41, 1, "KTS_SECUREFILE_L1_FMT (SecureFiles L1 메타데이터 포맷)"},
+        {13, 42, 1, "KTS_SECUREFILE_L2_FMT (SecureFiles L2 메타데이터 포맷)"},
+        {13, 43, 1, "KTS_SECUREFILE_L3_FMT (SecureFiles L3 메타데이터 포맷)"},
+        {13, 44, 1, "KTS_SECUREFILE_BLK_FMT (SecureFiles 청크 블록 포맷)"},
+        {13, 45, 1, "KTS_SECUREFILE_HDR_FMT (SecureFiles 헤더 포맷)"},
+
+        // --- OP 13.47: Block Update Extent Header Redo ---
+        {13, 47, 0, "KTS_SECUREFILE_BMB_REDO (SecureFiles 비트맵 블록 변경)"},
+
         {13, 49, 0, "Normal SecureFiles/Hash Bucket Redo (일반 L1/해시 버킷 변경)"},
+
+        // --- OP 13.51: Block Update Free Space Redo ---
+        {13, 51, 0, "KTS_SECUREFILE_DELTA (SecureFiles 델타 변경 기록)"},
+
+        // --- OP 13.53: Block Update Persistent Undo Redo ---
         {13, 53, 0, "Normal Persistent Undo Redo (일반 지속성 언두 변경)"},
+        {13, 53, 128, "Normal Persistent Undo Extended Redo (지속성 언두 확장 변경 리두)"},
+
+        // --- OP 13.55: Block Update Segment Header Redo ---
+        {13, 55, 0, "KTS_TEMP_UNDO_REDO (임시 언두 Temp Undo 변경)"},
+
         {13, 57, 1, "Format SecureFiles Segment Header (SecureFiles 세그먼트 헤더 포맷/초기화)"},
         {13, 59, 1, "Format Bitmap Block (비트맵 블록 포맷/초기화)"},
         {13, 60, 0, "Normal Space Bitmap Redo (일반 공간 비트맵 변경)"},
@@ -613,29 +824,93 @@ namespace ora {
         // =========================================================================
         // LAYER 14: KTE (Kernel Transaction Extent) - 익스텐트 관리
         // =========================================================================
+        // --- OP 14.1: Unlock Segment Header ---
         {14, 1, 0, "Normal Extent Action (일반 익스텐트 할당/해제)"},
         {14, 1, 1, "Auto-allocate Extent (자동 익스텐트 확장)"},
+        {14, 1, 128, "KTE_EXTENT_ACTION_REDO (익스텐트 할당/해제 리두)"},
+
+        // --- OP 14.2: Redo Set Extent Map Disk Lock ---
         {14, 2, 0, "Normal Extent Map Lock (일반 익스텐트/언두 세그먼트 맵 디스크 락 변경)"},
+        {14, 2, 128, "KTE_MAP_LOCK_REDO (익스텐트 맵 디스크 락 변경 리두)"},
+
+        // --- OP 14.4: Extent Operation Redo ---
         {14, 4, 0, "Normal Extent Operation Redo (일반 익스텐트 할당/해제 리두)"},
+        {14, 4, 128, "KTE_OP_EXTENDED_REDO (익스텐트 조작 확장 리두)"},
+
+        // --- OP 14.6: Extent Map Format Redo ---
+        {14, 6, 1, "KTE_FORMAT_MAP (익스텐트 맵 헤더 블록 포맷)"},
 
         // =========================================================================
-        // LAYER 17 / 18 / 22 / 23 / 24 / 26: 기타 시스템 및 마커 작업
+        // LAYER 17: KCV (Recovery / Kernel Cache Verification)
         // =========================================================================
         {17, 3, 6, "Crash Recovery Marker (크래시 복구 지점 마커)"},
+        {17, 4, 6, "KTF_TABLESPACE_MARKER (테이블스페이스 상태 변경 마커)"},
         {17, 15, 6, "Heartbeat Redo Marker (하트비트/체크포인트 상태 마커)"},
         {17, 28, 6, "System Container/State Marker (시스템/PDB 상태 변경 복구 마커)"},
+        {17, 30, 6, "KTF_PLUGGABLE_DB_MARKER (PDB 상태 전환/플러그인 마커)"},
+        {17, 32, 6, "KTF_ENCRYPTION_KEY_MARKER (TDE 암호화 키 변경 마커)"},
+
+        // =========================================================================
+        // LAYER 18: KCBK (Hot Backup Log Blocks)
+        // =========================================================================
         {18, 3, 6, "Object/Range Reuse Marker (오브젝트/범위 재사용 마커)"},
+
+        // =========================================================================
+        // LAYER 19: KCBL (Direct Loader Log Blocks)
+        // =========================================================================
+        // --- OP 19.1: Direct Block Logging ---
+        {19, 1, 1, "KTI_DIRECT_PATH_FMT (Direct Path Insert 세그먼트 포맷)"},
+
+        // =========================================================================
+        // LAYER 20: KCK (Compatibility Segment Operations)
+        // =========================================================================
+        // --- OP 20.4: Set Bit in SQL Tuning Existence Bit Vector ---
+        {20, 4, 6, "KTW_TABLESPACE_KEY_MARKER (테이블스페이스 마스터 키 마커)"},
+
+        // =========================================================================
+        // LAYER 21: KDL (LOB Segment Operations)
+        // =========================================================================
+        // --- OP 21.1: Write Data Into ILOB Data Block ---
+        {21, 1, 1, "KTR_RECOVERY_FMT (복구 세그먼트/블록 포맷)"},
+
+        // =========================================================================
+        // LAYER 22: KTFB (Tablespace Bitmapped File Operations)
+        // =========================================================================
+        {22, 1, 1, "KTS_BITMAP_FILE_FMT (비트맵 파일 헤더 포맷)"},
         {22, 2, 0, "Normal Space Header Redo (일반 공간 헤더 블록 변경)"},
+        {22, 2, 128, "Normal Space Header Extended Redo (공간 헤더 블록 확장 변경 리두)"},
+        {22, 4, 1, "KTS_BITMAP_FILE_SPACE_FMT (비트맵 공간 초기 포맷)"},
         {22, 5, 0, "Normal Bitmap Index/Space Redo (일반 비트맵 인덱스/공간 블록 변경)"},
+        {22, 5, 128, "Normal Bitmap Index/Space Extended Redo (비트맵 인덱스 확장 리두)"},
+        {22, 13, 0, "KTS_BITMAP_SPACE_HEADER (공간 비트맵 헤더 변경)"},
         {22, 15, 1, "Format Bitmap File Space Block (비트맵 파일 공간 블록 초기화)"},
         {22, 16, 0, "Normal Bitmap File Space Redo (일반 비트맵 파일 공간 변경)"},
+
+        // =========================================================================
+        // LAYER 23: KCBBL (Write Behind Logging Operations)
+        // =========================================================================
         {23, 1, 6, "Dummy Block Written Marker (더미 블록 기록 콜백 마커)"},
+        {23, 2, 0, "KFC_BLOCK_WRITE_MARKER (블록 디스크 기록 콜백 메타데이터)"},
+        {23, 2, 64, "KFC_BLOCK_WRITE_LOGGING (블록 디스크 기록 로깅)"},
         {23, 3, 6, "Direct Write Logging Marker (다이렉트 라이트 로깅 마커)"},
+
+        // =========================================================================
+        // LAYER 24: KRV (LogMiner Operations)
+        // =========================================================================
         {24, 1, 6, "LogMiner DDL Marker (LogMiner DDL 메타데이터 마커)"},
         {24, 4, 6, "LogMiner Misc Marker (LogMiner 기타 메타데이터 마커)"},
         {24, 5, 6, "LogMiner User Info Marker (LogMiner 사용자 정보 마커)"},
+        {24, 6, 6, "LogMiner Tx Audit Marker (LogMiner 트랜잭션 감사 마커)"},
+        {24, 8, 6, "LogMiner Compression Marker (LogMiner 압축 메타데이터 마커)"},
         {24, 10, 6, "LogMiner Unchained Redo Marker (LogMiner 단일 리두 마커)"},
-        {26, 6, 10, "Direct LOB Image Write (Direct Path LOB 데이터 블록 이미지 기록)"}
+        {24, 12, 6, "LogMiner LOB Metadata Marker (LogMiner LOB 메타데이터 마커)"},
+
+        // =========================================================================
+        // LAYER 26: KDLIR (Local LOB Operations)
+        // =========================================================================
+        // --- OP 26.6: Direct LOB Direct-Load Redo ---
+        {26, 6, 10, "Direct LOB Image Write (Direct Path LOB 데이터 블록 이미지 기록)"},
+        {26, 6, 138, "Direct LOB Image Write Redo (Direct Path LOB 블록 이미지 기록 리두)"}
     };
 
     static const std::unordered_map<uint32_t, std::string> cTypeMap = [] {
