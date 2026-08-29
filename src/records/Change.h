@@ -88,6 +88,6 @@ namespace ora {
     std::string to_string(BlockClassType cls);
     std::string to_string(const ChangeHead& h);
 
-    void show(const LengthVector& lv);
+    void show(const LengthVector& lv, bool dump);
 
 }

@@ -47,9 +47,8 @@ namespace ora {
         return Ok_of(std::move(rh));
     }
 
-    FileBlockSource::FileBlockSource(const std::string &path, const uint8_t showBlock, const size_t buffer_sz)
-        : showBlock(showBlock)
-          , drain_limit{buffer_sz} {
+    FileBlockSource::FileBlockSource(const std::string &path, const uint8_t showBlock)
+        : showMode(showBlock) {
         auto f = std::ifstream(path, std::ios::binary);
         if (!f) throw std::runtime_error("Cannot open file: " + path);
 
@@ -78,28 +77,53 @@ namespace ora {
 
     void FileBlockSource::drain() {
 
-        const auto& ctx = getCtx();
+        const auto &ctx = getCtx();
+        const auto showReason = (showMode & 2) == 2;
 
-        const auto showReason = (showBlock & 2) == 2;
+        const size_t CHUNK_SIZE = BLOCKS_PER_READ() * ctx.block_sz;
 
-        read_buf.resize(ctx.block_sz);
+        if (read_buf.size() < CHUNK_SIZE) {
+            read_buf.resize(CHUNK_SIZE);
+        }
 
-        for (auto i = 0; i < drain_limit && file; ++i) {
-            file.read(read_buf.data(), ctx.block_sz);
+        if (!file) return;
 
-            const auto readBytes = file.gcount();
-            if (readBytes == 0) { fmt::println("-- End of file"); break; }
-            if (readBytes < ctx.block_sz)
-                throw std::runtime_error(fmt::format("-- File block is small. idx {} read {}", i, file.gcount()));
+        file.read(read_buf.data(), CHUNK_SIZE);
+        const auto bytes_read = static_cast<size_t>(file.gcount());
 
-            auto b = Block_of(read_buf, ctx, showReason);
+        if (bytes_read == 0) {
+            fmt::println("-- End of file");
+            return;
+        }
+
+        if (bytes_read % ctx.block_sz != 0) {
+            throw std::runtime_error(fmt::format(
+                "-- Invalid read size: {} bytes is not a multiple of block_sz ({})",
+                bytes_read, ctx.block_sz
+            ));
+        }
+
+        const size_t blocks_in_chunk = bytes_read / ctx.block_sz;
+
+        for (size_t i = 0; i < blocks_in_chunk; ++i) {
+            const size_t offset = i * ctx.block_sz;
+
+            auto b = Block_of(
+                tcb::span<const char>{
+                    read_buf.data() + offset,
+                    static_cast<size_t>(ctx.block_sz)
+                },
+                ctx,
+                showReason
+            );
 
             if (b.head.log_seq_no != this->log_seq_no) {
                 fmt::println(std::cerr, "-- end of same LSN({}) blocks. block #{} (LSN:{})",
                              log_seq_no, b.head.block_no, b.head.log_seq_no);
                 break;
             }
-            out_buffer.push_back(b);
+
+            out_buffer.push_back(std::move(b));
         }
     }
 
@@ -111,9 +135,9 @@ namespace ora {
                 return std::nullopt;
         }
 
-        auto b = out_buffer.front();
+        auto b = std::move(out_buffer.front());
 
-        if ((showBlock & 1) == 1)
+        if ((showMode & 1) == 1)
             show(b);
 
         out_buffer.pop_front();

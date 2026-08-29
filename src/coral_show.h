@@ -73,7 +73,7 @@ namespace coral {
         const size_t limit = std::min(total_groups, max_groups);
 
         os << "  ---------------------------------------\n";
-        if (raw.size() == 0) return;
+        if (raw.empty()) return;
 
         size_t n = 0;
         os << "  ";
@@ -97,7 +97,7 @@ namespace coral {
         }
 
         if (odd && n < max_groups) {
-            const uint8_t last = static_cast<uint8_t>(raw.back());
+            const auto last = static_cast<uint8_t>(raw.back());
             os << colors[n & (colors_sz - 1)];
             os.write(hex_lut[last], 2);
             os.write(reset_color, 5);

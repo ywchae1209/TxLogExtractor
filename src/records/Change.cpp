@@ -44,8 +44,9 @@ namespace ora {
     }
 
     using coral::decode;
+
     static auto decode_LengthVector(const tcb::span<const char> &raw,
-                             const bool isLittle) -> std::tuple<tcb::span<const char>, LengthVector> {
+                                    const bool isLittle) -> std::tuple<tcb::span<const char>, LengthVector> {
 
         if (raw.size() < sizeof(uint16_t))
             throw std::out_of_range("decode_LengthVector:1: not enough");
@@ -188,10 +189,11 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    void show(const LengthVector &lv) {
+    void show(const LengthVector &lv, bool dump) {
         for (size_t i = 0; i < lv.spans.size(); ++i) {
             fmt::println("  * [#{}] ({} bytes)", i + 1, lv.spans[i].size());
-            // coral::show_HexDump(lv.spans[i]);
+            if (dump)
+                coral::show_HexDump(lv.spans[i]);
         }
     }
 }

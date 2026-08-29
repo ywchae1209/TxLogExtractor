@@ -63,7 +63,7 @@ namespace coral {
     /** Fill pattern(오라클 정크 패딩) (ASCII 0x20 ~ 0x7E 범위의 반복 문자)
      * 'AAAA', 'BBBB', 'CCCC', 'DDDD', 'FFFF' ... */
     inline bool is_ascii_filler(const uint32_t val) noexcept {
-        const uint8_t b = static_cast<uint8_t>(val & 0xFF);
+        const auto b = static_cast<uint8_t>(val & 0xFF);
         return (b >= 0x20 && b <= 0x7E) && is_fill_pattern(val);
     }
 

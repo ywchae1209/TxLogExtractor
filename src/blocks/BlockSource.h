@@ -13,14 +13,11 @@
 
 namespace ora {
 
-
     class BlockSource {
     public :
-
         virtual const BlockCtx& getCtx() = 0;
-
-        virtual ~BlockSource() = default;
         virtual std::optional<Block> getNext() = 0;
+        virtual ~BlockSource() = default;
     };
 
     // ================================================================================
@@ -30,23 +27,25 @@ namespace ora {
         RedoHead redoHead{};
         uint32_t log_seq_no{};   //// NOTE :: redoHead->log-file's seq
 
-        uint8_t showBlock;       //// 0: none, 1: Block, 2: bound-candidate
-
-        size_t drain_limit;
+        uint8_t showMode;       //// 0: none, 1: Block, 2: bound-candidate
 
         std::ifstream file;
         std::vector<char> read_buf;
         std::deque<Block> out_buffer;
 
         BlockCtx ctx;
-
         void drain();
+
+        size_t BLOCKS_PER_READ() {
+            const auto fallback = (8 * 1024 * 1024) / ctx.block_sz;
+            return (showMode & 2) == 2 ? 1 : fallback;
+        }
 
     public:
 
         const BlockCtx& getCtx() override { return ctx; }
 
-        explicit FileBlockSource(const std::string &path, uint8_t showBlock, size_t buffer_sz = 1);
+        explicit FileBlockSource(const std::string &path, uint8_t showBlock);
 
         [[nodiscard]] const FileHead &getFileHead() const { return fileHead; }
         [[nodiscard]] const RedoHead &getRedoHead() const { return redoHead; }

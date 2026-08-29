@@ -67,7 +67,7 @@ namespace ora {
 
     bool fairBound(const RecordBound& b, const std::optional<LwnCtx> &lwn, bool showReason, const RBA& rba);
 
-    std::vector<RecordBound> bound_candidates(tcb::span<const char> view,
+    std::vector<RecordBound> bound_candidates(const tcb::span<const char>& view,
                                                uint16_t start_offset,
                                                uint32_t block_no,
                                                const BlockCtx &ctx,

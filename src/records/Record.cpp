@@ -38,20 +38,20 @@ namespace ora {
     // --------------------------------------------------------------------------------
     Record Record_of(
         const RBA& rba,
-        const std::vector<char>& bytes,
+        RecordPayload& bytes, // const std::vector<char>& bytes,
         const RecordBound& bound,
         const BlockCtx& ctx ) {
 
         auto end_block = rba.block_no + bound.next_blocks;
         auto end_offset = bound.next_offset;
-        auto header = RecordHead_of(bytes, ctx.isLittle);
+        auto header = RecordHead_of(bytes.asVector(), ctx.isLittle);
 
         return Record{
             rba,
             end_block,
             end_offset,
             std::move(bytes),
-            std::move(header),
+            header,
             ctx.over12c,
             ctx.isLittle,
             bound.boundInfo.vld == 0
@@ -93,12 +93,14 @@ namespace ora {
     // --------------------------------------------------------------------------------
     inline void show(const Change& c, uint8_t showMode, std::ostream& os) {
 
+        const auto dump = (showMode & 2) == 2;
+        const auto info = (showMode & 1) == 1;
         if (showMode == 0) return;
 
-        if ((showMode & 1) == 1) fmt::println( "{}", to_string(c.change_head));
-        if ((showMode & 2) == 2) coral::show_HexDump(c.change_head.span);
+        if (info) fmt::println( "{}", to_string(c.change_head));
+        if (dump) coral::show_HexDump(c.change_head.span);
         fmt::println( "  ** LV : [{}]", fmt::join(c.length_vector.sizes, ", ") );
-        if ((showMode & 2) == 2) show(c.length_vector);
+        if (info) show(c.length_vector, dump);
     }
 
     void show(Record& r, uint8_t showMode, std::ostream &os) {
@@ -111,7 +113,7 @@ namespace ora {
 
         if (showMode != 0) {
             fmt::println(os, "  * Change Count == {}", r.changes().size());
-            for ( const auto c : r.changes() ) {
+            for ( const auto& c : r.changes() ) {
                 show(c, showMode, os);
             }
         }

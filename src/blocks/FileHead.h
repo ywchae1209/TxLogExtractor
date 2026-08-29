@@ -38,7 +38,7 @@ namespace ora {
         FileTypes type;
         uint8_t rawValue;
 
-        explicit FileType(uint8_t c): rawValue(c), type(FileTypes_of(c)) {};
+        explicit FileType(uint8_t c): type(FileTypes_of(c)), rawValue(c) {};
         bool isUnknown() const noexcept { return type == FileTypes::Unknown; }
     };
 

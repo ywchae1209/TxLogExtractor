@@ -9,7 +9,6 @@ namespace ora {
         auto block = block_source->getNext();
         if (!block)
             throw runtime_error( format("{} Not enough blocks: check file-size with NAB", prefix));
-
         return std::move(*block);
     }
 
@@ -114,19 +113,18 @@ namespace ora {
 
             // fill raw
             // --------------------------------------------------------------------------------
-            auto raw = std::vector<char>(bound.len);
+            RecordPayload raw;
+
             auto need = bound.len;
             const auto room0 = ctx.block_sz - start;
             const bool inSet = need <= room0;
             const auto take0 = inSet ? need : room0;
 
-            auto wPtr = 0;
-            std::memcpy( raw.data(), block.raw.data() + start, take0);
-            wPtr += take0;
+            raw.add_slice(block.raw, start, take0);
             need -= take0;
 
             if (inSet) {
-                auto record = Record_of(rba, raw, bound, ctx);
+                auto record = Record_of(rba, raw, bound, ctx);  // todo :::
                 update_water(record);
                 this->out_buffer.push_back(std::move(record));
                 out++;
@@ -139,7 +137,7 @@ namespace ora {
             bool first = true;
             while ( need > 0 ) {
                 Block b = getOrThrow(format("not enough for complete Record: #{}.@{} len:{} need:{}",
-                    rba.block_no, rba.offset, bound.len, need));
+                                            rba.block_no, rba.offset, bound.len, need));
                 const auto fbs = fairBounds(b, lwn_ctx, true);
 
                 if (first) {
@@ -155,13 +153,16 @@ namespace ora {
 
                 if (!last) {
                     const auto bsz = fbs.size();
-                    if( bsz > 1) throw runtime_error(format("too many records : #{}", b.block_no()));
                     if (bsz == 1 && prefer_new(bound, fbs[0], rba, b.block_no(), lwn_ctx))
-                            throw runtime_error(format("prefer new found interim. #{}", b.block_no()));
+                        throw runtime_error(format("prefer new found interim. #{}", b.block_no()));
+                    if( bsz > 1) {
+                        fmt::println(std::cerr, "-- too many records : #{}.@{} :: at #{}", rba.block_no, rba.offset, b.block_no());
+                        this->latest_block = b; // this case need inspection.
+                        return out;
+                    }
                 }
 
-                std::memcpy( raw.data() + wPtr, b.raw.data() + 16, take);
-                wPtr += take;
+                raw.add_slice(b.raw, 16, take);
                 need -= take;
 
                 if (last) {

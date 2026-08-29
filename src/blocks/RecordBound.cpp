@@ -12,7 +12,7 @@ namespace ora {
     using std::cerr;
 
     static std::optional<uint32_t> read_u32(
-        const tcb::span<const char> s,
+        const tcb::span<const char>& s,
         const size_t offset,
         const bool isLittle) noexcept {
         if (offset + sizeof(uint32_t) > s.size()) {
@@ -27,7 +27,7 @@ namespace ora {
     }
 
     static std::optional<uint16_t> read_u16(
-        const tcb::span<const char> s,
+        const tcb::span<const char>& s,
         const size_t offset,
         const bool isLittle) noexcept {
         if (offset + sizeof(uint16_t) > s.size()) {
@@ -42,7 +42,7 @@ namespace ora {
     }
 
     static std::optional<uint8_t> read_u8(
-        const tcb::span<const char> s,
+        const tcb::span<const char>& s,
         const size_t offset) noexcept {
         if (offset + sizeof(uint8_t) > s.size()) {
             fmt::println(cerr, "OUT-OF-RANGE: read_u8: offset out of bounds {}", offset);
@@ -222,7 +222,7 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    static std::optional<BoundInfo> read_BoundInfo0(const tcb::span<const char> view,
+    static std::optional<BoundInfo> read_BoundInfo0(const tcb::span<const char>& view,
                                                     const uint32_t block_no,
                                                     const size_t offset,
                                                     const BlockCtx &ctx,
@@ -270,7 +270,7 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    std::vector<RecordBound> bound_candidates(const tcb::span<const char> view,
+    std::vector<RecordBound> bound_candidates(const tcb::span<const char>& view,
                                                const uint16_t start_offset,
                                                const uint32_t block_no,
                                                const BlockCtx &ctx,

@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <iostream>
+#include <memory>
 #include <tcb/span.hpp>
 
 #include "RecordBound.h"
@@ -30,21 +31,28 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     struct Block {
-        std::vector<char> raw;
+        std::shared_ptr<std::vector<char>> raw;
         BlockHead head;
         std::vector<RecordBound> bounds{};
 
-        [[nodiscard]] tcb::span<const char> payload() const { return tcb::span(raw).subspan(16); }
+        [[nodiscard]] tcb::span<const char> payload() const {
+            if (!raw || raw->size() <= 16) return {};
+            return tcb::span<const char>(raw->data(), raw->size()).subspan(16);
+        }
+
+        [[nodiscard]] tcb::span<const char> raw_span() const {
+            if (!raw) return {};
+            return {raw->data(), raw->size()};
+        }
         uint32_t block_no() const { return head.block_no; };
         uint16_t offset() const { return head.offset; };
-
     };
 
     // --------------------------------------------------------------------------------
     constexpr auto BLOCK_HEAD = 16;
 
-    Block Block_of( std::vector<char> raw, bool isLittle);
-    Block Block_of( std::vector<char> raw, const BlockCtx& ctx, bool showReason = true );
+    Block Block_of(tcb::span<const char> raw, bool isLittle);
+    Block Block_of(tcb::span<const char> raw, const BlockCtx& ctx, bool showReason = true);
 
     std::string to_string(const BoundInfo& p);
     std::string to_string(const RecordBound& p, size_t block_no);

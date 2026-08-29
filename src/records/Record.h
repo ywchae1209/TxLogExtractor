@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <tcb/span.hpp>
 #include "Change.h"
 #include "ora_opCodes.h"
@@ -36,13 +37,69 @@ namespace ora {
     };
 
     // ================================================================================
+    struct BufferSlice {
+        std::shared_ptr<const std::vector<char>> storage;
+        tcb::span<const char> span;
+
+        BufferSlice(std::shared_ptr<const std::vector<char>> store, size_t offset, size_t len)
+            : storage(std::move(store))
+            , span(storage->data() + offset, len) {}
+    };
+
+    class RecordPayload {
+        std::vector<BufferSlice> slices;
+        mutable std::optional<std::vector<char>> cache{std::nullopt};
+
+    public:
+        RecordPayload() = default;
+
+        void add_slice(std::shared_ptr<const std::vector<char>> storage,
+                       size_t offset,
+                       size_t len) {
+            slices.emplace_back(std::move(storage), offset, len);
+            cache.reset();
+        }
+
+        [[nodiscard]] size_t size() const {
+            size_t total = 0;
+            for (const auto& slice : slices) total += slice.span.size();
+            return total;
+        }
+
+        [[nodiscard]] tcb::span<const char> span_at(size_t index = 0) const {
+            if (slices.empty()) return {};
+            return slices[index].span;
+        }
+
+        [[nodiscard]] std::vector<char>& asVector() const {
+            if (!cache.has_value()) {
+                std::vector<char> out;
+                out.reserve(size());
+                for (const auto& s : slices) {
+                    out.insert(out.end(), s.span.begin(), s.span.end());
+                }
+                cache = std::move(out);
+            }
+            return *cache;
+        }
+
+        [[nodiscard]] tcb::span<const char> asSpan() const {
+            if (slices.size() == 1) {
+                return slices[0].span;
+            }
+            const auto& vec = asVector();
+            return tcb::span(vec.data(), vec.size());
+        }
+
+        [[nodiscard]] size_t slice_count() const { return slices.size(); }
+    };
 
     struct Record {
         RBA rba;
         uint32_t end_block{0};
         uint16_t end_offset{0};
 
-        const std::vector<char> raw;
+        RecordPayload raw;      // const std::vector<char> raw;
         RecordHead header{};
 
         bool over12c;
@@ -57,7 +114,7 @@ namespace ora {
             if (!cache_changes.has_value()) {
                 cache_changes = isVoid
                                     ? std::vector<Change>{}
-                                    : Changes_of(rba, tcb::span(raw).subspan(header.size), over12c, isLittle);
+                                    : Changes_of(rba, raw.asSpan().subspan(header.size), over12c, isLittle);
             }
             return *cache_changes;
         }
@@ -65,7 +122,7 @@ namespace ora {
 
     Record Record_of(
         const RBA& rba,
-        const std::vector<char>& bytes,
+        RecordPayload& bytes, // const std::vector<char>& bytes,
         const RecordBound& bound,
         const BlockCtx& ctx );
 

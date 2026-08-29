@@ -10,23 +10,23 @@ namespace ora {
 
     //// Block own bytes.
     // --------------------------------------------------------------------------------
-    Block Block_of(std::vector<char> raw, const bool isLittle) {
+    Block Block_of(tcb::span<const char> raw, const bool isLittle) {
 
         Block block{};
 
         block.head = BlockHead_of(raw, isLittle);
-        block.raw = std::move(raw);
+        block.raw = std::make_shared<std::vector<char>>(raw.begin(), raw.end());
 
         return block;
     }
 
-    Block Block_of( std::vector<char> raw, const BlockCtx& ctx, const bool showReason) {
+    Block Block_of(tcb::span<const char> raw, const BlockCtx& ctx, const bool showReason) {
 
         Block block{};
 
         block.head = BlockHead_of(raw, ctx.isLittle);
         block.bounds = bound_candidates(raw, block.head.offset, block.head.block_no, ctx, showReason );
-        block.raw = std::move(raw);
+        block.raw = std::make_shared<std::vector<char>>(raw.begin(), raw.end());
 
         return block;
     }
