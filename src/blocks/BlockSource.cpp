@@ -123,7 +123,7 @@ namespace ora {
             if (b.head.log_seq_no != this->log_seq_no) {
                 fmt::println(std::cerr, "-- end of same LSN({}) blocks. block #{} (LSN:{})",
                              log_seq_no, b.head.block_no, b.head.log_seq_no);
-                break;
+                return i != 0;
             }
             out_buffer.push_back(std::move(b));
         }
