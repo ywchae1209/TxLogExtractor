@@ -43,65 +43,53 @@ namespace ora {
         return (size + 3) & ~static_cast<size_t>(3);
     }
 
-    using coral::decode;
 
     static auto decode_LengthVector(const tcb::span<const char> &raw,
                                     const bool isLittle) -> std::tuple<tcb::span<const char>, LengthVector> {
+        using coral::decode;
+        using fmt::format;
 
         if (raw.size() < sizeof(uint16_t))
             throw std::out_of_range("decode_LengthVector:1: not enough");
 
         // raw[0] = Length of Total Length-Array
-        uint16_t lv0;
-        std::memcpy(&lv0, raw.data(), sizeof(uint16_t));
-        const auto lv_len = decode(lv0, isLittle);
-
-        if (lv_len == 0) {
+        const auto lv0 = coral::get_u16(raw, 0, isLittle);
+        if (lv0 == 0)
             return std::make_tuple(raw.subspan(4), LengthVector{});
-        }
 
-        const bool valid_lv_len = lv_len >= sizeof(uint16_t)
-                               && lv_len <= raw.size()
-                               && lv_len % 2 == 0;      // uint16_t
-
-        if (!valid_lv_len) {
-            auto msg = fmt::format( "decode_LengthVector:2: wrong lv0: {} (decoded){} : {} ", lv0, lv_len, raw.size() );
+        const bool lv0_ok = lv0 <= raw.size() && lv0 % 2 == 0;
+        if (!lv0_ok) {
+            const auto msg = format( "decode_LengthVector:2: wrong lv0: {} : {} ", lv0, raw.size() );
             fmt::println(std::cerr, msg);
             coral::show_HexDump(raw);
             throw std::out_of_range( msg);
         }
 
         // slot
-        const auto slots = lv_len / sizeof(uint16_t);
+        const auto slots = lv0 / sizeof(uint16_t);
 
         // sizes
         std::vector<uint16_t> o_sizes;
         o_sizes.reserve(slots-1);
 
-        for (auto i = 1; i < slots; ++i) {
-            uint16_t lv;
-            std::memcpy(&lv, raw.data() + i * sizeof(uint16_t), sizeof(uint16_t));
-            o_sizes.push_back( decode(lv, isLittle));
-        }
+        for (auto i = 1; i < slots; ++i)
+            o_sizes.push_back( coral::get_u16(raw, i * sizeof(uint16_t), isLittle));
 
-        auto offset = align_up4(lv_len); // 4-byte align.
+        auto offset = align_up4(lv0); // 4-byte align.
 
         // sizes
         std::vector<tcb::span<const char>> o_spans;
         o_spans.reserve(slots-1);
 
         for (auto i = 1; i < slots; ++i) {
-
-            const auto elm = o_sizes[i-1];
-            if (offset + elm > raw.size()) {
+            const auto e_sz = o_sizes[i-1];
+            if (offset + e_sz > raw.size()) {
                 throw std::out_of_range(
-                      fmt::format("decode_LengthVector:3: {} -> {} : {} {}/{} {} != {}",
-                                  lv0, lv_len, raw.size(), i, slots, elm, raw.size()-offset)
+                    format("decode_LengthVector:3: {}/{} ::: {} > {}", i, slots, e_sz, raw.size() - offset)
                 );
             }
-            o_spans.push_back(raw.subspan(offset, elm));
-
-            offset += align_up4(elm);       // 4-byte align
+            o_spans.push_back(raw.subspan(offset, e_sz));
+            offset += align_up4(e_sz);       // 4-byte align
         }
 
         return std::make_tuple(raw.subspan(offset),

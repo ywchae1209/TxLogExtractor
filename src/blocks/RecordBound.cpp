@@ -11,47 +11,6 @@ namespace ora {
     using coral::decode;
     using std::cerr;
 
-    static std::optional<uint32_t> read_u32(
-        const tcb::span<const char>& s,
-        const size_t offset,
-        const bool isLittle) noexcept {
-        if (offset + sizeof(uint32_t) > s.size()) {
-            fmt::println(cerr, "OUT-OF-RANGE: read_ui32: offset out of bounds {}", offset);
-            return std::nullopt;
-        }
-
-        uint32_t value = 0;
-        std::memcpy(&value, s.data() + offset, sizeof(uint32_t));
-
-        return decode(value, isLittle);
-    }
-
-    static std::optional<uint16_t> read_u16(
-        const tcb::span<const char>& s,
-        const size_t offset,
-        const bool isLittle) noexcept {
-        if (offset + sizeof(uint16_t) > s.size()) {
-            fmt::println(cerr, "OUT-OF-RANGE: read_ui16: offset out of bounds {}", offset);
-            return std::nullopt;
-        }
-
-        uint16_t value = 0;
-        std::memcpy(&value, s.data() + offset, sizeof(uint16_t));
-
-        return decode(value, isLittle);
-    }
-
-    static std::optional<uint8_t> read_u8(
-        const tcb::span<const char>& s,
-        const size_t offset) noexcept {
-        if (offset + sizeof(uint8_t) > s.size()) {
-            fmt::println(cerr, "OUT-OF-RANGE: read_u8: offset out of bounds {}", offset);
-            return std::nullopt;
-        }
-
-        return static_cast<uint8_t>(s[offset]);
-    }
-
     // from limited source.
     enum VldFlags : uint8_t {
         KCR_void = 0x00, // Invalid
@@ -68,7 +27,6 @@ namespace ora {
     [[nodiscard]] bool dependBit_on(uint8_t vld) {
         return (vld & KCR_depend) == KCR_depend;
     }
-
 
     [[nodiscard]] std::optional<bool> choose_new_vld(uint8_t vld0, uint8_t vld1) {
         if (vld0 == vld1) return std::nullopt;
@@ -238,12 +196,12 @@ namespace ora {
             return std::nullopt;
         }
 
-        const auto len = read_u32(view, offset, ctx.isLittle);
-        const auto vld = read_u8(view, offset + 4);
-        const auto foo = read_u8(view, offset + 5);
-        const auto wrap = read_u16(view, offset + 6, ctx.isLittle);
-        const auto base = read_u32(view, offset + 8, ctx.isLittle);
-        const auto cur = scn_to64(*wrap, *base);
+        const auto len = coral::get_u32(view, offset, ctx.isLittle);
+        const auto vld = coral::get_u8(view, offset + 4);
+        const auto foo = coral::get_u8(view, offset + 5);
+        const auto wrap = coral::get_u16(view, offset + 6, ctx.isLittle);
+        const auto base = coral::get_u32(view, offset + 8, ctx.isLittle);
+        const auto cur = scn_to64(wrap, base);
 
         auto log_out = [&](std::string s) {
             if (showReason)
@@ -251,7 +209,7 @@ namespace ora {
                                     "0x{:04x}.{:08x} {}:{} "
                                     "ctx: 0x{:04x}.{:08x} 0x{:04x}.{:08x}",
                                     block_no, offset, s,
-                                    *wrap, *base, *len, *vld,
+                                    wrap, base, len, vld,
                                     ctx.low_scn.wrap, ctx.low_scn.base,
                                     ctx.nxt_scn.wrap, ctx.nxt_scn.base ) );
             return std::nullopt;
@@ -259,14 +217,14 @@ namespace ora {
 
         constexpr uint32_t MIN_RECORD = 24;
         constexpr uint64_t MAX_RECORD_LEN = 16 * 1024 * 1024; // 16 MB
-        const bool no_len = *len == 0 || (*len & 3) != 0 || *len < MIN_RECORD;
+        const bool no_len = len == 0 || (len & 3) != 0 || len < MIN_RECORD;
         if (no_len) return std::nullopt; // surely invalid
 
-        if (*len > MAX_RECORD_LEN) return log_out("LEN");
+        if (len > MAX_RECORD_LEN) return log_out("LEN");
         if (out_range(cur, ctx.low(), ctx.nxt())) return log_out("SCN");
-        if (bad_vld(*vld)) return log_out("VLD");
+        if (bad_vld(vld)) return log_out("VLD");
 
-        return std::make_optional(BoundInfo{*len, SCN{*base, *wrap}, *vld, *foo});
+        return std::make_optional(BoundInfo{len, SCN{base, wrap}, vld, foo});
     }
 
     // --------------------------------------------------------------------------------

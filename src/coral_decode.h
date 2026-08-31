@@ -4,6 +4,11 @@
 #include <endian.h>   // leXXtoh, beXXtoh
 #include <byteswap.h> // bswap16, bswap32, bswap64
 #include <cstdint>
+#include <cstring>
+#include <iostream>
+#include <optional>
+
+#include "fmt/ostream.h"
 
 namespace coral {
     template<typename T>
@@ -73,6 +78,68 @@ namespace coral {
             return 0;
         }
         return val;
+    }
+
+    using std::cerr;
+    using fmt::println;
+
+    inline uint64_t get_u64( const tcb::span<const char>& s, const size_t offset, const bool isLittle) {
+        uint64_t value = 0;
+        std::memcpy(&value, s.data() + offset, sizeof(uint64_t));
+        return decode(value, isLittle);
+    }
+
+    inline std::optional<uint64_t> read_u64(const tcb::span<const char> &s,
+                                            const size_t offset, const bool isLittle) noexcept {
+        if (offset + sizeof(uint64_t) > s.size()) {
+            println(cerr, "OUT-OF-RANGE: read_ui64: offset out of bounds {}", offset);
+            return std::nullopt;
+        }
+        return get_u64(s, offset, isLittle);
+    }
+
+
+    inline uint32_t get_u32(const tcb::span<const char> &s,
+                            const size_t offset, const bool isLittle) {
+        uint32_t value = 0;
+        std::memcpy(&value, s.data() + offset, sizeof(uint32_t));
+        return decode(value, isLittle);
+    }
+
+
+    inline std::optional<uint32_t> read_u32(
+        const tcb::span<const char>& s,
+        const size_t offset,
+        const bool isLittle) noexcept {
+        if (offset + sizeof(uint32_t) > s.size()) {
+            println(cerr, "OUT-OF-RANGE: read_ui32: offset out of bounds {}", offset);
+            return std::nullopt;
+        }
+
+        return get_u32(s, offset, isLittle);
+    }
+
+    inline uint16_t get_u16(const tcb::span<const char> &s,
+                            const size_t offset, const bool isLittle) {
+        uint16_t value = 0;
+        std::memcpy(&value, s.data() + offset, sizeof(uint16_t));
+        return decode(value, isLittle);
+    }
+
+    inline std::optional<uint16_t> read_u16(const tcb::span<const char> &s,
+                                            const size_t offset, const bool isLittle) noexcept {
+        if (offset + sizeof(uint16_t) > s.size()) {
+            println(cerr, "OUT-OF-RANGE: read_ui16: offset out of bounds {}", offset);
+            return std::nullopt;
+        }
+
+        uint16_t value = 0;
+        std::memcpy(&value, s.data() + offset, sizeof(uint16_t));
+        return decode(value, isLittle);
+    }
+
+    inline uint8_t get_u8( const tcb::span<const char>& s, const size_t offset) noexcept {
+        return static_cast<uint8_t>(s[offset]);
     }
 }
 

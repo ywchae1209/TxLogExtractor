@@ -1,3 +1,7 @@
+// #include <execution>
+#include <algorithm>
+#include <tcb/span.hpp>
+
 #include "BlockSource.h"
 #include "../coral_result.h"
 
@@ -47,8 +51,10 @@ namespace ora {
         return Ok_of(std::move(rh));
     }
 
-    FileBlockSource::FileBlockSource(const std::string &path, const uint8_t showBlock)
-        : showMode(showBlock) {
+    FileBlockSource::FileBlockSource(const std::string &path, const uint8_t showMode)
+        : showMode(showMode) {
+
+
         auto f = std::ifstream(path, std::ios::binary);
         if (!f) throw std::runtime_error("Cannot open file: " + path);
 
@@ -75,26 +81,24 @@ namespace ora {
         };
     }
 
-    void FileBlockSource::drain() {
+    bool FileBlockSource::drain() {
 
         const auto &ctx = getCtx();
         const auto showReason = (showMode & 2) == 2;
 
         const size_t CHUNK_SIZE = BLOCKS_PER_READ() * ctx.block_sz;
 
+        //std::vector<char> read_buf;
         if (read_buf.size() < CHUNK_SIZE) {
             read_buf.resize(CHUNK_SIZE);
         }
 
-        if (!file) return;
+        if (!file) return false;
 
         file.read(read_buf.data(), CHUNK_SIZE);
         const auto bytes_read = static_cast<size_t>(file.gcount());
 
-        if (bytes_read == 0) {
-            fmt::println("-- End of file");
-            return;
-        }
+        if (bytes_read == 0) { fmt::println("-- End of file"); return false; }
 
         if (bytes_read % ctx.block_sz != 0) {
             throw std::runtime_error(fmt::format(
@@ -105,33 +109,31 @@ namespace ora {
 
         const size_t blocks_in_chunk = bytes_read / ctx.block_sz;
 
+        // fmt::println("-- Blocks in chunk {}", blocks_in_chunk);
+
+        const auto sp = read_buf.begin();
         for (size_t i = 0; i < blocks_in_chunk; ++i) {
             const size_t offset = i * ctx.block_sz;
+            const auto from = sp + offset;
+            const auto to = from + ctx.block_sz;
 
-            auto b = Block_of(
-                tcb::span<const char>{
-                    read_buf.data() + offset,
-                    static_cast<size_t>(ctx.block_sz)
-                },
-                ctx,
-                showReason
-            );
+            auto b = Block_of( std::vector(from, to), ctx.isLittle);
+            b.set_bounds(ctx, showReason);
 
             if (b.head.log_seq_no != this->log_seq_no) {
                 fmt::println(std::cerr, "-- end of same LSN({}) blocks. block #{} (LSN:{})",
                              log_seq_no, b.head.block_no, b.head.log_seq_no);
                 break;
             }
-
             out_buffer.push_back(std::move(b));
         }
+        return true;
     }
 
     std::optional<Block> FileBlockSource::getNext() {
 
         if (out_buffer.empty()) {
-            drain();
-            if (out_buffer.empty())
+            if (!drain())
                 return std::nullopt;
         }
 

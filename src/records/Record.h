@@ -37,61 +37,31 @@ namespace ora {
     };
 
     // ================================================================================
-    struct BufferSlice {
-        std::shared_ptr<const std::vector<char>> storage;
-        tcb::span<const char> span;
-
-        BufferSlice(std::shared_ptr<const std::vector<char>> store, size_t offset, size_t len)
-            : storage(std::move(store))
-            , span(storage->data() + offset, len) {}
-    };
-
     class RecordPayload {
-        std::vector<BufferSlice> slices;
-        mutable std::optional<std::vector<char>> cache{std::nullopt};
+        std::vector<char> storage;
 
     public:
         RecordPayload() = default;
 
-        void add_slice(std::shared_ptr<const std::vector<char>> storage,
+        void add_slice(const tcb::span<const char> slice,
                        size_t offset,
                        size_t len) {
-            slices.emplace_back(std::move(storage), offset, len);
-            cache.reset();
+
+            auto sub = slice.subspan(offset, len);
+            storage.insert(storage.end(), sub.begin(), sub.end());
         }
 
         [[nodiscard]] size_t size() const {
-            size_t total = 0;
-            for (const auto& slice : slices) total += slice.span.size();
-            return total;
+            return storage.size();
         }
 
-        [[nodiscard]] tcb::span<const char> span_at(size_t index = 0) const {
-            if (slices.empty()) return {};
-            return slices[index].span;
+        [[nodiscard]] std::vector<char>& asVector() {
+            return storage;
         }
 
-        [[nodiscard]] std::vector<char>& asVector() const {
-            if (!cache.has_value()) {
-                std::vector<char> out;
-                out.reserve(size());
-                for (const auto& s : slices) {
-                    out.insert(out.end(), s.span.begin(), s.span.end());
-                }
-                cache = std::move(out);
-            }
-            return *cache;
+        [[nodiscard]] tcb::span<const char> asSpan() const noexcept {
+            return tcb::span(storage.data(), storage.size());
         }
-
-        [[nodiscard]] tcb::span<const char> asSpan() const {
-            if (slices.size() == 1) {
-                return slices[0].span;
-            }
-            const auto& vec = asVector();
-            return tcb::span(vec.data(), vec.size());
-        }
-
-        [[nodiscard]] size_t slice_count() const { return slices.size(); }
     };
 
     struct Record {

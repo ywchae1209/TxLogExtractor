@@ -100,7 +100,7 @@ namespace ora {
         if (info) fmt::println( "{}", to_string(c.change_head));
         if (dump) coral::show_HexDump(c.change_head.span);
         fmt::println( "  ** LV : [{}]", fmt::join(c.length_vector.sizes, ", ") );
-        if (info) show(c.length_vector, dump);
+        if (dump) show(c.length_vector, dump);
     }
 
     void show(Record& r, uint8_t showMode, std::ostream &os) {
@@ -112,8 +112,9 @@ namespace ora {
         );
 
         if (showMode != 0) {
-            fmt::println(os, "  * Change Count == {}", r.changes().size());
-            for ( const auto& c : r.changes() ) {
+            const auto& cs = r.changes();
+            fmt::println(os, "  * Change Count == {}", cs.size());
+            for ( const auto& c : cs ) {
                 show(c, showMode, os);
             }
         }

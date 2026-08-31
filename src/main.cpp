@@ -29,9 +29,8 @@ void shows(const std::string &filename,
     ora::show(block_it->getRedoHead());
 
     if (onlyBlock) {
-
         while (auto block = block_it->getNext()) {
-            show(*block);
+            show(*block, showDump);
         }
         return;
     }
@@ -39,12 +38,11 @@ void shows(const std::string &filename,
     ora::DefaultRecordSource record_source(std::move(block_it));   // moved
 
     auto nr = 0;
-
     int last = -1;
     while (auto rec = record_source.getNext()) {
         if (only1000 && (nr > 1000)) break;
 
-        // check missing block
+        // check missing block in records
         auto start = rec->rba.block_no;
         auto end = rec->end_block;
 
@@ -55,9 +53,7 @@ void shows(const std::string &filename,
                 fmt::println(std::cerr, "Missing {} ~ {} : {}", last + 1, start - 1, start - last - 1);
         }
         last = end;
-
-        if (!onlyBlock)
-            show(*rec, modeRecord);
+        show(*rec, modeRecord);
         nr++;
     }
 
