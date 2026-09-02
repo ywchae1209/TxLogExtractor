@@ -37,7 +37,7 @@ add_executable(TxLogExtractor
 )
 
 #target_link_libraries(TxLogExtractor PRIVATE TxLogCore)
-
+add_definitions(-DFMT_HEADER_ONLY)
 target_include_directories(TxLogExtractor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/external/include")
 
 ################################################################################

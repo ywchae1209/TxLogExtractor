@@ -5,6 +5,31 @@
 
 namespace ora {
 
+    // --------------------------------------------------------------------------------
+    struct OraVer {
+        uint32_t raw_val{};
+        uint8_t major{};
+        uint8_t minor{};
+        uint8_t patch{};
+        uint8_t extra{};
+    };
+
+    inline static OraVer to_OraVer(const uint32_t n) {
+        return OraVer{
+            n,
+            static_cast<uint8_t>((n >> 24) & 0xFF),
+            static_cast<uint8_t>((n >> 16) & 0xFF),
+            static_cast<uint8_t>((n >> 8)  & 0xFF),
+            static_cast<uint8_t>(n & 0xFF)
+        };
+    }
+
+    // OraVer : 19.3.0.0
+    inline std::string toHex(const OraVer &ver) {
+        return fmt::format("{}.{}.{}.{}", ver.major, ver.minor, ver.patch, ver.extra);
+    }
+    // --------------------------------------------------------------------------------
+
     struct RBA {
         uint32_t log_seq_no{0}; // Redo-Log Sequence Number
         uint32_t block_no{0};   // Block Number
@@ -16,29 +41,45 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-
     /** 오라클 SCN (System Change Number) (64-bit) */
     struct SCN {
         uint32_t base{}; ///< SCN Base
         uint16_t wrap{}; ///< SCN Wrap
-        uint16_t wrap_high{}; ///< SCN Wrap_High -- ignore ??
+        uint16_t wrap_high{}; ///< SCN Wrap_High -- ignore ?? or use lower
     };
 
-    // ================================================================================
-#pragma pack(push, 1)
-    struct SCN_lo {
-        uint32_t minor; // base
-        uint16_t major; // wrap ~ wrap_high
-        uint16_t major_high; // wrap ~ wrap_high
-    };
-#pragma pack(pop)
+    using coral::decode_at;
 
-    // in redo header
-    inline SCN decode_SCN0(const SCN_lo &raw, const bool isLittle) {
-        const uint32_t minor = coral::decode(raw.minor, isLittle);
-        const uint16_t major = coral::decode(raw.major, isLittle);
-        const uint16_t major_high = coral::decode(raw.major_high, isLittle);
+    template <bool IsLittle>
+    inline SCN decode_scn0l( tcb::span<const char>buf) {
+        return SCN{
+            .base     = decode_at<uint32_t, IsLittle>(buf, 0),
+            .wrap     = decode_at<uint16_t, IsLittle>(buf, 4),
+            .wrap_high= decode_at<uint16_t, IsLittle>(buf, 6)
+        };
+    }
 
+    template <bool IsLittle>
+    inline SCN decode_scn0s( tcb::span<const char>buf) {
+        return SCN{
+           .base     = decode_at<uint32_t, IsLittle>(buf, 0),
+           .wrap     = decode_at<uint16_t, IsLittle>(buf, 4),
+           .wrap_high= 0
+        };
+    }
+
+    template <bool IsLittle>
+    inline SCN decode_scn0s_at(tcb::span<const char> buf, size_t offset) {
+        return decode_scn0s<IsLittle>(buf.subspan(offset));
+    }
+
+    template <bool IsLittle>
+    inline SCN decode_scn0l_at(tcb::span<const char> buf, size_t offset) {
+        return decode_scn0l<IsLittle>(buf.subspan(offset));
+    }
+
+    template <bool IsLittle>
+    inline SCN decode_redo_scn0l( tcb::span<const char>buf) {
         /* ========================================
             SCN in redo header (low-scn, next-scn)
 
@@ -49,33 +90,49 @@ namespace ora {
                             base(32).wrap(16).ffff(16)
                             base(32).wrap(16).0000(16)
          */
+        auto o = decode_scn0l<IsLittle>(buf);
 
-        SCN o = {};
-        o.base = minor;
-
-        if (major == 0x8000) {
-            o.wrap = major_high;            // & 0x7fff; // MSB is active-flag.
-            o.wrap_high = major;
-
-        } else {
-            o.wrap = major;            // & 0x7fff; // MSB is active-flag.
-            o.wrap_high = major_high;
+        if (o.wrap == 0x8000) {
+            fmt::println(std::cerr,
+                         fmt::format("redo-scn-swap : wrap(0x{:0x}) <-> wrap_high(0x{:04x})",
+                             o.wrap, o.wrap_high));
+            auto w = o.wrap;
+            o.wrap = o.wrap_high;
+            o.wrap_high = w;
         }
         return o;
     }
 
+    template <bool IsLittle>
+    inline SCN decode_redo_scn0_at( tcb::span<const char>buf, size_t offset) {
+        return decode_redo_scn0l<IsLittle>(buf.subspan(offset));
+    }
 
-    inline SCN decode_SCN(const SCN_lo &raw, const bool isLittle) {
-        const uint32_t minor = coral::decode(raw.minor, isLittle);
-        const uint16_t major = coral::decode(raw.major, isLittle);
-        const uint16_t major_high = coral::decode(raw.major_high, isLittle);
+    // --------------------------------------------------------------------------------
+    // include wrap_high
+    inline SCN decode_scnL( tcb::span<const char>buf, bool isLittle) {
+        return isLittle
+                   ? decode_scn0l<true>(buf)
+                   : decode_scn0l<false>(buf);
+    }
 
-        SCN o = {};
-        o.base = minor;
-        o.wrap = major;
-        o.wrap_high = major_high;
+    // ignore wrap_high
+    inline SCN decode_scn( tcb::span<const char>buf, bool isLittle) {
+        return isLittle
+                   ? decode_scn0s<true>(buf)
+                   : decode_scn0s<false>(buf);
+    }
 
-        return o;
+    inline SCN decode_scn_at( tcb::span<const char>buf, size_t offset, bool isLittle) {
+        return isLittle
+                   ? decode_scn0s<true>(buf.subspan(offset))
+                   : decode_scn0s<false>(buf.subspan(offset));
+    }
+
+    inline SCN decode_redo_scn_at(tcb::span<const char> buf, size_t offset, bool isLittle) {
+        return isLittle
+                   ? decode_redo_scn0l<true>(buf.subspan(offset))
+                   : decode_redo_scn0l<false>(buf.subspan(offset));
     }
 
     //// ignore wrap_high
@@ -95,19 +152,5 @@ namespace ora {
 
     inline std::string toHex0(const SCN &scn) {
         return fmt::format("0x{:04x}.{:08x}", scn.wrap, scn.base);
-    }
-
-    // ================================================================================
-    struct OraVer {
-        uint32_t raw_val{};
-        uint8_t major{};
-        uint8_t minor{};
-        uint8_t patch{};
-        uint8_t extra{};
-    };
-
-    // OraVer : 19.3.0.0
-    inline std::string toHex(const OraVer &ver) {
-        return fmt::format("{}.{}.{}.{}", ver.major, ver.minor, ver.patch, ver.extra);
     }
 }

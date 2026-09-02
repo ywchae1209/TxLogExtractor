@@ -1,7 +1,6 @@
 #pragma once
 #include <memory>
 #include "../coral_show.h"
-
 #include "../blocks/BlockSource.h"
 #include "Record.h"
 

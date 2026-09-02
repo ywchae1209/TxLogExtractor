@@ -7,6 +7,7 @@
 
 #include "tcb/span.hpp"
 #include "../ora_layout.h"
+#include "../coral_result.h"
 
 namespace ora {
 
@@ -32,6 +33,47 @@ namespace ora {
         UndoHeader,            /// 17, 19...: Undo header - 일반 Undo 세그먼트 헤더 (USN >= 1)
         UndoBlock,             /// 18, 20...: Undo block  - 일반 Undo 데이터 블록 (USN >= 1)
     };
+
+    inline static auto get_cls_usn(const uint16_t c) noexcept {
+
+        /*
+            읽는 법 연습하기
+            0x0F / 0x10	15 / 16	SYSTEM Undo Header / Block	USN 0
+            0x11 / 0x12	17 / 18	Undo Header / Block	USN 1
+            0x13 / 0x14	19 / 20	Undo Header / Block	USN 2
+            0x15 / 0x16	21 / 22	Undo Header / Block	USN 3
+            0x17 / 0x18	23 / 24	Undo Header / Block	USN 4
+            0x19 / 0x1A	25 / 26	Undo Header / Block	USN 5
+            0x1B / 0x1C	27 / 28	Undo Header / Block	USN 6
+            0x1D / 0x1E	29 / 30	Undo Header / Block	USN 7
+            0x1F / 0x20	31 / 32	Undo Header / Block	USN 8
+         */
+
+        const uint16_t usn = (c < 17) ? 0 : (c - 15) / 2; // Undo Segment Number (Undo 관련 블록일 때)
+        const uint16_t cls = (c < 17) ? c : 18 - (c & 1);
+
+        switch (cls) {
+            case 1:  return std::make_tuple(BlockClassType::DataBlock, usn);
+            case 2:  return std::make_tuple(BlockClassType::SortBlock, usn);
+            case 3:  return std::make_tuple(BlockClassType::SaveUndoBlock, usn);
+            case 4:  return std::make_tuple(BlockClassType::SegmentHeader, usn);
+            case 5:  return std::make_tuple(BlockClassType::SaveUndoHeader, usn);
+            case 6:  return std::make_tuple(BlockClassType::FreeListBlock, usn);
+            case 7:  return std::make_tuple(BlockClassType::ExtentMapBlock, usn);
+            case 8:  return std::make_tuple(BlockClassType::Bmb1st, usn);
+            case 9:  return std::make_tuple(BlockClassType::Bmb2nd, usn);
+            case 10: return std::make_tuple(BlockClassType::Bmb3rd, usn);
+            case 11: return std::make_tuple(BlockClassType::BitmapBlock, usn);
+            case 12: return std::make_tuple(BlockClassType::BitmapIndexBlock, usn);
+            case 13: return std::make_tuple(BlockClassType::FileHeaderBlock, usn);
+            case 14: return std::make_tuple(BlockClassType::DeferredRollbackBlock, usn);
+            case 15: return std::make_tuple(BlockClassType::SystemUndoHeader, usn);
+            case 16: return std::make_tuple(BlockClassType::SystemUndoBlock, usn);
+            case 17: return std::make_tuple(BlockClassType::UndoHeader, usn);
+            case 18: return std::make_tuple(BlockClassType::UndoBlock, usn);
+            default: return std::make_tuple(BlockClassType::Unknown, usn);
+        }
+    }
 
 
     // --------------------------------------------------------------------------------
@@ -67,8 +109,8 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     struct LengthVector {
-        std::vector<uint16_t> sizes;
-        std::vector<tcb::span<const char> > spans;
+        const std::vector<uint16_t> sizes;
+        const std::vector<tcb::span<const char>> spans;
     };
 
     // --------------------------------------------------------------------------------
@@ -82,7 +124,7 @@ namespace ora {
         const RBA &rba,
         const tcb::span<const char> &raw,
         bool over12c,
-        bool isLittle) -> std::vector<Change>;
+        bool isLittle, std::vector<Change>&) -> coral::Result<bool>;
 
     // --------------------------------------------------------------------------------
     std::string to_string(BlockClassType cls);

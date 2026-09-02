@@ -4,74 +4,66 @@
 
 #include "BlockSource.h"
 #include "../coral_result.h"
+#include "../coral_show.h"
 
 namespace ora {
 
     using ora::FileHead;
     using ora::RedoHead;
     using ora::BlockHead, ora::Block;
-    using coral::Ok_of, coral::Err_of, coral::Result;
+    using coral::Result, coral::err_of;
+    using fmt::format;
 
     static Result<FileHead> read_FileHead(std::ifstream& in) {
+        constexpr auto size = 256;
 
-        std::vector<char> buf(256);
+        std::vector<char> buf(size);
 
-        in.read(buf.data(), buf.size());
+        in.read(buf.data(), size);
+        if (const auto r = in.gcount(); r != size)
+            return err_of(format("[FileHead] need at least 256 bytes, but {}", r));
 
-        if (in.gcount() != 256)
-            return Err_of<FileHead>( "[read_FileHead] Fail to read 256 bytes, but " + std::to_string(in.gcount()) );
+        auto out = FileHead_of(buf);
+        if (!out) return err_of(out.error());
 
-        auto h = FileHead_of(buf);
-        if (const auto e = h.errString(); e.has_value())
-            return Err_of<FileHead>( "[read_FileHead] Invalid File-Head: " + *e);
+        // consume rest
+        in.seekg(out->block_sz - size, std::ios::cur);
 
-        in.seekg(h.block_sz - 256 , std::ios::cur);
-
-        return Ok_of(std::move(h));  // move
+        return out;
     }
 
-    static Result<Block> read_RedoHeadBlock(std::ifstream& in, const FileHead& fh) {
-        std::vector<char> buf(fh.block_sz);
+    static Result<RedoHead> read_RedoHead(std::ifstream& in, const FileHead& f) {
 
-        in.read(buf.data(), fh.block_sz);
-        if (in.gcount() != fh.block_sz)
-            return Err_of<Block>("[read_RedoHead] Fail to read block_sz,  but " + std::to_string(in.gcount()) );
+        std::vector<char> buf(f.block_sz);
 
-        auto b = Block_of(buf, fh.isLittle);
+        in.read(buf.data(), f.block_sz);
+        if (const auto r = in.gcount(); r != f.block_sz)
+            return err_of(format("[RedoHead] need {} bytes,  but {}", f.block_sz, r));
 
-        return Ok_of(std::move(b));
-    }
+        const auto b = Block_of(buf, f.isLittle);
+        if (b.isEmpty())
+            return err_of("[RedoHead] empty block");
 
-    static Result<RedoHead> read_RedoHead(std::ifstream& in, const Block& b, const FileHead& fh) {
-        auto rh = RedoHead_of(b.payload(), fh.isLittle);
-
-        if (!rh.isOk() )
-            return Err_of<RedoHead> ("[read_RedoHead] Invalid Redo-Head: " + to_string(rh.valid));
-
-        return Ok_of(std::move(rh));
+        return RedoHead_of(b, f.isLittle);
     }
 
     FileBlockSource::FileBlockSource(const std::string &path, const uint8_t showMode)
         : showMode(showMode) {
 
-
         auto f = std::ifstream(path, std::ios::binary);
         if (!f) throw std::runtime_error("Cannot open file: " + path);
 
         auto fh = read_FileHead(f);
-        if (!fh.ok()) throw std::runtime_error(fh.error);
+        if (!fh) throw std::runtime_error(fh.error());
 
-        auto rb = read_RedoHeadBlock(f, fh.get());
-        if (!rb.ok()) throw std::runtime_error(rb.error);
-
-        auto rh = read_RedoHead(f, rb.get(), fh.get());
-        if (!rh.ok()) throw std::runtime_error(rh.error);
+        auto rh = read_RedoHead(f, *fh);
+        if (!rh) throw std::runtime_error(rh.error());
 
         // ----------------------------------------
         file = std::move(f);
-        log_seq_no = rb.get().head.log_seq_no;
-        fileHead = std::move(fh.get());
-        redoHead = std::move(rh.get());
+        log_seq_no = rh->log_seq_no;
+        fileHead = *fh;
+        redoHead = *rh;
         ctx = BlockCtx{
             fileHead.isLittle,
             redoHead.sourceInfo.compat_ver.major >= 12,
@@ -86,7 +78,7 @@ namespace ora {
         const auto &ctx = getCtx();
         const auto showReason = (showMode & 2) == 2;
 
-        const size_t CHUNK_SIZE = BLOCKS_PER_READ() * ctx.block_sz;
+        const auto CHUNK_SIZE = BLOCKS_PER_READ() * ctx.block_sz;
 
         //std::vector<char> read_buf;
         if (read_buf.size() < CHUNK_SIZE) {
@@ -101,7 +93,7 @@ namespace ora {
         if (bytes_read == 0) { fmt::println("-- End of file"); return false; }
 
         if (bytes_read % ctx.block_sz != 0) {
-            throw std::runtime_error(fmt::format(
+            throw std::runtime_error(format(
                 "-- Invalid read size: {} bytes is not a multiple of block_sz ({})",
                 bytes_read, ctx.block_sz
             ));
@@ -120,9 +112,9 @@ namespace ora {
             auto b = Block_of( std::vector(from, to), ctx.isLittle);
             b.set_bounds(ctx, showReason);
 
-            if (b.head.log_seq_no != this->log_seq_no) {
+            if (b.log_seq_no() != this->log_seq_no) {
                 fmt::println(std::cerr, "-- end of same LSN({}) blocks. block #{} (LSN:{})",
-                             log_seq_no, b.head.block_no, b.head.log_seq_no);
+                             log_seq_no, b.block_no(), b.log_seq_no());
                 return i != 0;
             }
             out_buffer.push_back(std::move(b));

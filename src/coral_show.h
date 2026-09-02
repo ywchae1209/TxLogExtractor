@@ -42,6 +42,7 @@ namespace coral {
     constexpr auto B_cyan   = "\033[1;96m";
     constexpr auto B_white  = "\033[1;97m";
 
+    constexpr auto error_color= B_red;
     constexpr auto key_color = B_green;
     constexpr auto desc_color= yellow;
 

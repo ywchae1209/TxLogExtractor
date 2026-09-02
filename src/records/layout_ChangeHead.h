@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Change.h"
 #include "../coral_decode.h"
 #include "../ora_layout.h"
 
@@ -35,7 +34,8 @@ namespace ora {
     ///<         Object_id: 데이터 딕셔너리 상의 논리적 객체 번호 (테이블 생성 시 부여되며 거의 변경되지 않음)
     ///<    Data_Object_id: 실제 데이터가 저장되는 물리적 세그먼트 번호
 
-    struct ChangeHead_lo {
+    // 24
+    struct ChangeHead_base_lo {
         uint8_t opLayer;        /// [5: Undo/Tx, 10: Index, 11: DataBlock...]
         uint8_t opCode;
 
@@ -43,114 +43,84 @@ namespace ora {
         uint32_t afn_obj;       /// * AFN (low 2) + boj_high( High 2)
         uint32_t dba;           /// * Data Block Address
 
-        SCN_lo scn;             /// ignore wrap-high
+        SCN scn;                /// ignore wrap-high
 
         uint8_t seq;            /// Change Sequence Number : 동일한 Redo Record 또는 동일 SCN 내에서 해당 체인지 벡터의 순번
         uint8_t ctype;          /// * Change Type
         uint16_t obj_low;       /// * Data-Object-Id-Low
     };
 
+    // 8
     struct ChangeHead_ext_lo {
         uint8_t con_id;
         uint8_t flag[3];
         uint32_t aux;
     };
 
+    struct ChangeHead_lo {
+        ChangeHead_base_lo base;
+        std::optional<ChangeHead_ext_lo> ext;
+    };
+
+
 #pragma pack(pop)
 
-    inline static auto decode_cls(const uint16_t c0, const bool isLittle) noexcept {
+    template <bool IsLittle>
+    inline ChangeHead_base_lo decode_change_head_base0(tcb::span<const char> buf) noexcept {
 
-        auto c = coral::decode(c0, isLittle);
+        using coral::decode_at;
 
-        /*
-            읽는 법 연습하기
-            0x0F / 0x10	15 / 16	SYSTEM Undo Header / Block	USN 0
-            0x11 / 0x12	17 / 18	Undo Header / Block	USN 1
-            0x13 / 0x14	19 / 20	Undo Header / Block	USN 2
-            0x15 / 0x16	21 / 22	Undo Header / Block	USN 3
-            0x17 / 0x18	23 / 24	Undo Header / Block	USN 4
-            0x19 / 0x1A	25 / 26	Undo Header / Block	USN 5
-            0x1B / 0x1C	27 / 28	Undo Header / Block	USN 6
-            0x1D / 0x1E	29 / 30	Undo Header / Block	USN 7
-            0x1F / 0x20	31 / 32	Undo Header / Block	USN 8
-         */
-
-        const uint16_t usn = (c < 17) ? 0 : (c - 15) / 2; // Undo Segment Number (Undo 관련 블록일 때)
-        const uint16_t cls = (c < 17) ? c : 18 - (c & 1);
-
-        switch (cls) {
-            case 1:  return std::make_tuple(BlockClassType::DataBlock, usn);
-            case 2:  return std::make_tuple(BlockClassType::SortBlock, usn);
-            case 3:  return std::make_tuple(BlockClassType::SaveUndoBlock, usn);
-            case 4:  return std::make_tuple(BlockClassType::SegmentHeader, usn);
-            case 5:  return std::make_tuple(BlockClassType::SaveUndoHeader, usn);
-            case 6:  return std::make_tuple(BlockClassType::FreeListBlock, usn);
-            case 7:  return std::make_tuple(BlockClassType::ExtentMapBlock, usn);
-            case 8:  return std::make_tuple(BlockClassType::Bmb1st, usn);
-            case 9:  return std::make_tuple(BlockClassType::Bmb2nd, usn);
-            case 10: return std::make_tuple(BlockClassType::Bmb3rd, usn);
-            case 11: return std::make_tuple(BlockClassType::BitmapBlock, usn);
-            case 12: return std::make_tuple(BlockClassType::BitmapIndexBlock, usn);
-            case 13: return std::make_tuple(BlockClassType::FileHeaderBlock, usn);
-            case 14: return std::make_tuple(BlockClassType::DeferredRollbackBlock, usn);
-            case 15: return std::make_tuple(BlockClassType::SystemUndoHeader, usn);
-            case 16: return std::make_tuple(BlockClassType::SystemUndoBlock, usn);
-            case 17: return std::make_tuple(BlockClassType::UndoHeader, usn);
-            case 18: return std::make_tuple(BlockClassType::UndoBlock, usn);
-            default: return std::make_tuple(BlockClassType::Unknown, usn);
-        }
+        return ChangeHead_base_lo{
+            decode_at<uint8_t, IsLittle>(buf, 0),   // opLayer
+            decode_at<uint8_t, IsLittle>(buf, 1),   // opCode
+            decode_at<uint16_t,IsLittle>(buf, 2),   // cls
+            decode_at<uint32_t,IsLittle>(buf, 4),   // afn_obj
+            decode_at<uint32_t,IsLittle>(buf, 8),   // dba
+            decode_scn0s_at   <IsLittle>(buf, 12),  // scn (SCN: 8 bytes)
+            decode_at<uint8_t, IsLittle>(buf, 20),  // seq
+            decode_at<uint8_t, IsLittle>(buf, 21),  // ctype
+            decode_at<uint16_t,IsLittle>(buf, 22)   // obj_low
+        };
     }
 
-    inline static auto decode_afn_obj(const uint32_t ao, const bool isLittle) noexcept {
+    template <bool IsLittle>
+    inline ChangeHead_ext_lo decode_change_head_ext0(tcb::span<const char> buf) noexcept {
+        using coral::decode_at;
 
-        const auto c = coral::decode(ao, isLittle);
+        ChangeHead_ext_lo ext{};
 
-        uint16_t afn  = (c      ) & 0xffff;
-        uint16_t obj_h =(c >> 16) & 0xffff;
+        ext.con_id = decode_at<uint8_t, IsLittle>(buf, 0);
 
-        return std::make_tuple(afn, obj_h);
+        const uint8_t* ptr = reinterpret_cast<const uint8_t*>(buf.data() + 1);
+        ext.flag[0] = ptr[0];
+        ext.flag[1] = ptr[1];
+        ext.flag[2] = ptr[2];
+
+        ext.aux = decode_at<uint32_t, IsLittle>(buf, 4);
+        return ext;
     }
 
-    inline static auto decode(const ChangeHead_lo &ch,
-                              const std::optional<ChangeHead_ext_lo> &ch_ext,
-                              const tcb::span<const char> span,
-                              const bool isLittle) -> ChangeHead {
-        using coral::decode;
 
-        ChangeHead o;
+    inline ChangeHead_base_lo decode_change_head_base(tcb::span<const char> buf, bool isLittle) {
+        return isLittle
+                   ? decode_change_head_base0<true>(buf)
+                   : decode_change_head_base0<false>(buf);
+    }
 
-        o.size = span.size();
-        o.span = span;
+    inline ChangeHead_ext_lo decode_change_head_ext(tcb::span<const char> buf, bool isLittle) {
+        return isLittle
+                   ? decode_change_head_ext0<true>(buf)
+                   : decode_change_head_ext0<false>(buf);
+    }
 
-        o.opLayer = decode(ch.opLayer, isLittle);
-        o.opCode = decode(ch.opCode, isLittle);
-        o.seq = decode(ch.seq, isLittle);
-        o.ctype = decode(ch.ctype, isLittle);
+    inline ChangeHead_lo decode_change_head(tcb::span<const char> buf, bool hasExt, bool isLittle) {
+        // caller must check buf-size
 
-        // ----------------------------------------
-        const auto [cls_type, usn] = decode_cls(ch.cls, isLittle);
-        o.cls = cls_type;
-        o.usn = usn;
-
-        // ----------------------------------------
-        const auto dba = decode(ch.dba, isLittle);
-        o.dba = dba;
-        o.rfile_no =  dba >> 22;           // 10 bit
-        o.block_no =  dba & 0x003FFFFFu;   // 22 bit
-
-        // ----------------------------------------
-        o.scn = decode_SCN(ch.scn, isLittle);
-
-        // ----------------------------------------
-        const auto [afn, obj_h] = decode_afn_obj(ch.afn_obj, isLittle);
-        o.afn       = afn;
-        o.obj_high  = obj_h;
-        o.obj_low   = decode(ch.obj_low, isLittle);
-        o.obj_id    = (o.obj_high << 16) | o.obj_low;
-
-        // ----------------------------------------
-        o.con_id = ch_ext ? std::make_optional(decode(ch_ext->con_id, isLittle)) : std::nullopt;
-
-        return o;
+        return ChangeHead_lo{
+            decode_change_head_base(buf, isLittle),
+            hasExt
+                ? std::make_optional(decode_change_head_ext(buf, isLittle))
+                : std::nullopt
+        };
     }
 }

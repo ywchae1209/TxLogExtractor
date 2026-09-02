@@ -8,7 +8,6 @@
 
 namespace ora {
     using fmt::format;
-    using coral::decode;
     using std::cerr;
 
     // from limited source.
@@ -185,6 +184,7 @@ namespace ora {
                                                     const size_t offset,
                                                     const BlockCtx &ctx,
                                                     const bool showReason ) {
+        using coral::get_at;
 
         if (offset < 16) return std::nullopt;
 
@@ -196,11 +196,12 @@ namespace ora {
             return std::nullopt;
         }
 
-        const auto len = coral::get_u32(view, offset, ctx.isLittle);
-        const auto vld = coral::get_u8(view, offset + 4);
-        const auto foo = coral::get_u8(view, offset + 5);
-        const auto wrap = coral::get_u16(view, offset + 6, ctx.isLittle);
-        const auto base = coral::get_u32(view, offset + 8, ctx.isLittle);
+        const auto len  = get_at<uint32_t>(view, offset, ctx.isLittle);
+        const auto vld  = get_at< uint8_t>(view, offset + 4, ctx.isLittle);
+        const auto foo  = get_at< uint8_t>(view, offset + 5, ctx.isLittle);
+        const auto wrap = get_at<uint16_t>(view, offset + 6, ctx.isLittle);
+        const auto base = get_at<uint32_t>(view, offset + 8, ctx.isLittle);
+
         const auto cur = scn_to64(wrap, base);
 
         auto log_out = [&](std::string s) {
@@ -259,8 +260,8 @@ namespace ora {
                                         const std::optional<LwnCtx> &lwn,
                                         const bool showReason) {
         const auto& bs = block.bounds;
-        const auto lsn = block.head.log_seq_no;
-        const auto bsn = block.head.block_no;
+        const auto lsn = block.log_seq_no();
+        const auto bsn = block.block_no();
 
         std::vector<RecordBound> out;
         out.reserve(bs.size());

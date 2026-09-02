@@ -5,12 +5,12 @@
 #include <iostream>
 
 #include "../coral_show.h"
+#include "../coral_result.h"
 
 namespace ora {
     // --------------------------------------------------------------------------------
     enum class FHValid : uint16_t {
         Ok = 0,
-        Empty,               ///< 입력 버퍼가 NULL인 경우
         TooShort,
         InvalidEndian,      ///< Unknown endian-magic
         InvalidFileType,    ///< Unknown file-type
@@ -48,16 +48,16 @@ namespace ora {
 
         FHValid   valid{};
         FileType  file_type{FileType{0}};
-        bool      isLittle;
-        uint16_t  block_sz;
-        uint32_t  total_blocks;             ////< total written_blocks or total_blocks
+        bool      isLittle{};
+        uint16_t  block_sz{};
+        uint32_t  total_blocks{};             ////< total written_blocks or total_blocks
 
-        bool isOk() const noexcept { return valid == FHValid::Ok; }
-        std::optional<std::string> errString() const noexcept ;
+        [[nodiscard]] bool isOk() const noexcept { return valid == FHValid::Ok; }
+        [[nodiscard]] std::optional<std::string> errString() const noexcept ;
     };
 
     // --------------------------------------------------------------------------------
-    FileHead FileHead_of(const std::vector<char> &raw) noexcept;
+    coral::Result<FileHead> FileHead_of(const std::vector<char> &raw) noexcept;
 
     std::string to_string(FHValid valid);
     std::string to_string(const FileHead& h);

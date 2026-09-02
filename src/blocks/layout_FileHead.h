@@ -1,78 +1,75 @@
 #pragma once
 
 #include <optional>
-
 #include "FileHead.h"
 #include "../coral_decode.h"
+#include "../coral_result.h"
 
 namespace ora {
 
 #pragma pack(push, 1)
-    struct FileHead_lo {
-        uint8_t  p0;
-        uint8_t  fileType;
-        uint8_t  p1[14];
+    constexpr size_t RedoFileHead_SZ = 32;
 
-        uint16_t crc;
-        uint16_t p2;
-        uint32_t block_sz;
-        uint32_t total_blocks;
-        uint8_t  endian_magic[4]; // 0x7a7b7c7d (big-endian)
+    struct FileHead_lo {
+        uint8_t  zero;               // (1 byte, offset 0)
+        uint8_t  fileType;           // (1 byte, offset 1)
+        uint16_t empty0;             // (2 bytes, offset 2)
+
+        uint32_t unknown[3];         // (12 bytes, offset 4)
+
+        uint16_t crc;                // (2 bytes, offset 16)
+        uint8_t  empty1[2];          // (2 bytes, offset 18)
+        uint32_t block_size;         // Redo block size (4 bytes, offset 20)
+        uint32_t total_block_count;  // Total block count (4 bytes, offset 24)
+        uint32_t endian_magic;       // Endian Magic (4 bytes, offset 28)
+
+        // -- added ---
+        bool isLittle;
     };
 #pragma pack(pop)
+    using coral::decode_at;
 
-    inline FHValid validate(const FileHead& fh) noexcept {
+    template <bool IsLittle>
+    inline FileHead_lo decode_FileHead_lo0(tcb::span<const char> buf) {
+        return FileHead_lo{
+            .zero              = decode_at<uint8_t,  IsLittle>(buf, 0),
+            .fileType          = decode_at<uint8_t,  IsLittle>(buf, 1),
+            .empty0            = decode_at<uint16_t, IsLittle>(buf, 2),
+            .unknown           = {
+                decode_at<uint32_t, IsLittle>(buf, 4),
+                decode_at<uint32_t, IsLittle>(buf, 8),
+                decode_at<uint32_t, IsLittle>(buf, 12)
+            },
+            .crc               = decode_at<uint16_t, IsLittle>(buf, 16),
+            .empty1            = {
+                decode_at<uint8_t,  IsLittle>(buf, 18),
+                decode_at<uint8_t,  IsLittle>(buf, 19)
+            },
+            .block_size        = decode_at<uint32_t, IsLittle>(buf, 20),
+            .total_block_count = decode_at<uint32_t, IsLittle>(buf, 24),
+            .endian_magic      = decode_at<uint32_t, IsLittle>(buf, 28),
+            .isLittle           = IsLittle
+        };
+    }
 
-        if ( fh.file_type.isUnknown())
-            return FHValid::InvalidFileType;
+    [[nodiscard]] inline coral::Result<FileHead_lo> decode_FileHead_lo(tcb::span<const char> buf) {
+        if (buf.size() < RedoFileHead_SZ)
+            return coral::err_of("redo-file head: not enough bytes");
 
-        if (fh.block_sz< 256) return FHValid::InvalidBlockSize;
+        const auto* magic_bytes = reinterpret_cast<const uint8_t*>(buf.data() + 28);
 
-        switch(fh.block_sz) {
-            case 512:
-            case 1024:
-            case 2048:
-            case 4096:
-            case 8192:
-            case 16384:
-            case 32768:
-                break;
-            default:
-                return FHValid::InvalidBlockSize;
+        // 0x7A, 0x7B, 0x7C, 0x7D ::: Big-Endian
+        if (magic_bytes[0] == 0x7A && magic_bytes[1] == 0x7B &&
+            magic_bytes[2] == 0x7C && magic_bytes[3] == 0x7D) {
+            return decode_FileHead_lo0<false>(buf);
         }
-        return FHValid::Ok;
+
+        // 0x7D, 0x7C, 0x7B, 0x7A ::: Little-Endian
+        if (magic_bytes[0] == 0x7D && magic_bytes[1] == 0x7C &&
+            magic_bytes[2] == 0x7B && magic_bytes[3] == 0x7A) {
+            return decode_FileHead_lo0<true>(buf);
+        }
+
+        return coral::err_of("redo-file-head: invalid magic-endian");
     }
-
-    inline std::optional<bool> isLittleEndian(const uint8_t (&bytes)[4] ) {
-
-        if (bytes[0] == 0x7a && bytes[1] == 0x7b &&
-            bytes[2] == 0x7c && bytes[3] == 0x7d)
-            return false;
-
-        if ( bytes[0] == 0x7d && bytes[1] == 0x7c &&
-            bytes[2] == 0x7b && bytes[3] == 0x7a)
-            return true;
-
-        return std::nullopt;
-    }
-
-    inline FileHead decode(const FileHead_lo &raw) noexcept {
-        using coral::decode;
-
-        const auto mayLittle = isLittleEndian(raw.endian_magic);
-
-        if (!mayLittle.has_value())
-            return FileHead{FHValid::InvalidEndian};
-
-        FileHead o;
-        o.isLittle  = mayLittle.value();
-        o.file_type = FileType{decode(raw.fileType, o.isLittle)};
-        o.block_sz  = decode(raw.block_sz, o.isLittle);
-        o.total_blocks = decode(raw.total_blocks, o.isLittle);
-
-        o.valid = validate(o);
-
-        return o;
-    }
-
 }

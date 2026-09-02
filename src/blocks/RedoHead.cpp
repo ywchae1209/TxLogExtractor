@@ -1,16 +1,16 @@
 #include <tcb/span.hpp>
 
 #include "RedoHead.h"
+#include "Block.h"
 #include "layout_RedoHead.h"
+#include "../coral_show.h"
+#include <fmt/format.h>
+
 
 namespace ora {
-
-    RedoHead RedoHead_of(const tcb::span<const char> &raw, const bool isLittle) {
-        if (raw.size() < sizeof(RedoHead_lo))
-            return RedoHead{RHValid::TooShort};
-
-        const auto lo = reinterpret_cast<const RedoHead_lo *>(raw.data());
-        return decode_RedoHead(*lo, isLittle);
+    coral::Result<RedoHead> RedoHead_of(const Block& block,
+                                        const bool isLittle) {
+        return decode_redo_head(block, isLittle);
     }
 
 
@@ -124,7 +124,7 @@ namespace ora {
                    "                    ORACLE REDO HEADER INFO                      \n"
                    "=================================================================\n"
                    "[ Validation Status ] : {}\n\n",
-                   to_string(head.valid)
+                   to_string(validate(head))
         );
 
         fmt::print(os, "{}", to_string(head.sourceInfo));

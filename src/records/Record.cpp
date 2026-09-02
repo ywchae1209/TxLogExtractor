@@ -1,3 +1,4 @@
+#include "../coral_show.h"
 #include "../blocks/Block.h"
 #include "Record.h"
 #include "layout_RecordHead.h"
@@ -5,34 +6,30 @@
 namespace ora {
     RecordHead RecordHead_of(const tcb::span<const char>& raw, const bool isLittle) {
 
-        constexpr auto size0 = sizeof(Base_lo);
-        constexpr auto size1 = sizeof(Lwn_lo);
+        constexpr auto sz0 = sizeof(Base_lo);
+        constexpr auto sz1 = sizeof(Lwn_lo);
 
-        if (raw.size() < size0) {
+        if (raw.size() < sz0) {
             throw std::out_of_range("[RecordHead_of] Buffer size < 24 byte.");
         }
 
-        auto base = [&]() -> RecordHead_Base {
-            Base_lo raw_base{};
-            std::memcpy(&raw_base, raw.data(), size0);
-            return decode(raw_base, isLittle);
-        }();
+        auto base = decode_record_head_base(raw, isLittle);
 
-        //// variable length Header :: vld ~ dependBit
-        if (!dependBit_on(base.vld) )
-            return RecordHead{ size0, base, std::nullopt};
+        if (!dependBit_on(base.vld))
+            return RecordHead{
+                .size = sz0,
+                .base = base,
+                .lwn  = std::nullopt};
 
-        if (raw.size() < size0 + size1) {
+        if (raw.size() < sz0 + sz1)
             throw std::out_of_range("[RecordHead_of] Buffer size < 64 byte.");
-        }
 
-        auto ext = [&]() -> auto {
-            Lwn_lo o{};
-            std::memcpy(&o, raw.data() + size0, size1);
-            return decode(o, isLittle);
-        }();
+        auto ext = decode_record_head_lwn(raw.subspan(sz0), isLittle);
 
-        return RecordHead{ size0 + size1, base, ext};
+        return RecordHead{
+            .size = sz0 + sz1,
+            .base = base,
+            .lwn = ext };
     }
 
     // --------------------------------------------------------------------------------
@@ -47,14 +44,14 @@ namespace ora {
         auto header = RecordHead_of(bytes.asVector(), ctx.isLittle);
 
         return Record{
-            rba,
-            end_block,
-            end_offset,
-            std::move(bytes),
-            header,
-            ctx.over12c,
-            ctx.isLittle,
-            bound.boundInfo.vld == 0
+            .rba = rba,
+            .end_block = end_block,
+            .end_offset = end_offset,
+            .raw = std::move(bytes),
+            .header = header,
+            .over12c = ctx.over12c,
+            .isLittle = ctx.isLittle,
+            .isVoid = bound.boundInfo.vld == 0
         };
     }
 
@@ -112,13 +109,17 @@ namespace ora {
         );
 
         if (showMode != 0) {
-            const auto& cs = r.changes();
+            const auto ret = r.changes();
+            if (!ret) {
+                fmt::println(std::cerr, "  * Change exceptions: {}{}{}", coral::error_color, ret.error(), coral::reset_color);
+                fmt::println(os, "  * Change exceptions: {}{}{}", coral::error_color, ret.error(), coral::reset_color);
+                return;
+            }
+            const auto& cs = *ret;
             fmt::println(os, "  * Change Count == {}", cs.size());
-            for ( const auto& c : cs ) {
+            for (const auto& c : cs) {
                 show(c, showMode, os);
             }
         }
-
     }
-
 }

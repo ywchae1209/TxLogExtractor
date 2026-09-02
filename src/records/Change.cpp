@@ -1,129 +1,149 @@
 #include "layout_ChangeHead.h"
 #include "ora_opCodes.h"
 #include "Record.h"
+#include "../coral_result.h"
 
 namespace ora {
 
+    using fmt::format;
+    using coral::get_at;
+    using coral::err_of;
+
     // --------------------------------------------------------------------------------
     static auto decode_ChangeHead(const tcb::span<const char> &raw,
-                           const bool over12c,
-                           const bool isLittle) -> std::tuple<tcb::span<const char>, ChangeHead> {
+                                  const bool over12c,
+                                  const bool isLittle)
+        -> coral::Result<std::tuple<tcb::span<const char>, ChangeHead> > {
 
-        using coral::decode;
-
-        constexpr auto lo_sz = sizeof(ChangeHead_lo);
+        constexpr auto lo_sz = sizeof(ChangeHead_base_lo);
         constexpr auto ex_sz = sizeof(ChangeHead_ext_lo);
 
         const auto sz = lo_sz + (over12c ? ex_sz : 0);
 
         if (raw.size() < sz)
-            throw std::out_of_range(fmt::format("[decode_ChangeHead]: not enough {} < {}(need) ", raw.size(), sz));
+            return err_of( format("ChangeHead: not enough {} < {}(need) ", raw.size(), sz));
 
-        const auto lo0 = [&]() -> ChangeHead_lo {
-            ChangeHead_lo ch{};
-            std::memcpy(&ch, raw.data(), lo_sz);
-            return ch;
-        }();
+        auto c = decode_change_head(raw, over12c, isLittle);
 
-        //// variable Header : over12c
-        const auto ext = [&]() -> std::optional<ChangeHead_ext_lo> {
-            if (!over12c) return std::nullopt;
-            ChangeHead_ext_lo ex{};
-            std::memcpy(&ex, raw.data() + lo_sz, ex_sz);
-            return ex;
-        }();
+        const auto [cls, usn] = get_cls_usn(c.base.cls);
 
-        auto o = decode(lo0, ext, raw.subspan(0, sz), isLittle);
+        const uint16_t afn      = c.base.afn_obj       & 0xFFFFu;
+        const uint16_t obj_high = c.base.afn_obj >> 16 & 0xFFFFu;
+        const uint16_t obj_low  = c.base.obj_low;
+        const uint32_t obj_id   = static_cast<uint32_t>(obj_high) << 16 | obj_low;
 
-        return std::make_tuple(raw.subspan(sz), o);
+        ChangeHead o{
+            .span     = raw.first(sz),
+            .size     = sz,
+            .opLayer  = c.base.opLayer,
+            .opCode   = c.base.opCode,
+            .cls      = cls,
+            .usn      = usn,
+            .afn      = afn,
+            .obj_id   = obj_id,
+            .obj_low  = obj_low,
+            .obj_high = obj_high,
+            .dba      = c.base.dba,
+            .rfile_no = static_cast<uint16_t>(c.base.dba >> 22),          // High 10 bits
+            .block_no = c.base.dba & 0x003FFFFFu,                         // Low 22 bits
+            .scn      = c.base.scn,
+            .seq      = c.base.seq,
+            .ctype    = c.base.ctype,
+            .con_id   = c.ext ? std::make_optional(c.ext->con_id) : std::nullopt
+        };
+
+        return std::make_tuple(raw.subspan(sz), std::move(o));
     }
 
     // --------------------------------------------------------------------------------
-    static constexpr size_t align_up4(const size_t size) noexcept {
-        return (size + 3) & ~static_cast<size_t>(3);
-    }
+    static auto decode_LengthVector(const tcb::span<const char> &raw, const bool isLittle)
+        -> coral::Result<std::tuple<tcb::span<const char>, LengthVector> > {
 
 
-    static auto decode_LengthVector(const tcb::span<const char> &raw,
-                                    const bool isLittle) -> std::tuple<tcb::span<const char>, LengthVector> {
-        using coral::decode;
-        using fmt::format;
+        const auto raw_sz = raw.size();
 
-        if (raw.size() < sizeof(uint16_t))
-            throw std::out_of_range("decode_LengthVector:1: not enough");
+        if (raw_sz < 4) // at least 4 byte. even if lv0 == 0.
+            return err_of("LengthVector: not enough");
 
         // raw[0] = Length of Total Length-Array
-        const auto lv0 = coral::get_u16(raw, 0, isLittle);
+        const auto lv0 = get_at<uint16_t>(raw, 0, isLittle);
         if (lv0 == 0)
             return std::make_tuple(raw.subspan(4), LengthVector{});
 
-        const bool lv0_ok = lv0 <= raw.size() && lv0 % 2 == 0;
-        if (!lv0_ok) {
-            const auto msg = format( "decode_LengthVector:2: wrong lv0: {} : {} ", lv0, raw.size() );
-            fmt::println(std::cerr, msg);
-            coral::show_HexDump(raw);
-            throw std::out_of_range( msg);
-        }
+        if (lv0 > raw_sz || lv0 % 2 != 0)
+            return err_of(format("LengthVector: invalid lv0 {}", lv0));
 
-        // slot
         const auto slots = lv0 / sizeof(uint16_t);
+        const auto e_count = slots - 1;
 
-        // sizes
         std::vector<uint16_t> o_sizes;
-        o_sizes.reserve(slots-1);
-
-        for (auto i = 1; i < slots; ++i)
-            o_sizes.push_back( coral::get_u16(raw, i * sizeof(uint16_t), isLittle));
-
-        auto offset = align_up4(lv0); // 4-byte align.
-
-        // sizes
         std::vector<tcb::span<const char>> o_spans;
-        o_spans.reserve(slots-1);
+
+        o_sizes.reserve(e_count);
+        o_spans.reserve(e_count);
+
+        auto e_offset = coral::align_up4(lv0); // 4-byte align.
 
         for (auto i = 1; i < slots; ++i) {
-            const auto e_sz = o_sizes[i-1];
-            if (offset + e_sz > raw.size()) {
-                throw std::out_of_range(
-                    format("decode_LengthVector:3: {}/{} ::: {} > {}", i, slots, e_sz, raw.size() - offset)
-                );
+
+            const auto e_sz = get_at<uint16_t>(raw, i * sizeof(uint16_t), isLittle);
+
+            if (e_offset + e_sz > raw_sz) {
+                return err_of(format("LengthVector: invalid lv{}/{}: {} left {}", i, slots, e_sz, raw_sz - e_offset));
             }
-            o_spans.push_back(raw.subspan(offset, e_sz));
-            offset += align_up4(e_sz);       // 4-byte align
+
+            o_sizes.push_back(e_sz);
+            o_spans.push_back(raw.subspan(e_offset, e_sz));
+
+            e_offset += coral::align_up4(e_sz);  // 4-byte align-up
         }
 
-        return std::make_tuple(raw.subspan(offset),
-                               LengthVector{std::move(o_sizes), std::move(o_spans)});
+        return std::make_tuple(raw.subspan(e_offset),
+                               LengthVector{
+                                   .sizes = std::move(o_sizes),
+                                   .spans = std::move(o_spans) });
     }
 
     // --------------------------------------------------------------------------------
     auto Changes_of(const RBA &rba,
                     const tcb::span<const char> &raw,
                     const bool over12c,
-                    const bool isLittle) -> std::vector<Change> {
+                    const bool isLittle,
+                    std::vector<Change>& out)
+        -> coral::Result<bool> {
 
-        std::vector<Change> changes;
         tcb::span<const char> view = raw;
 
         auto idx = 0;
         while (!view.empty()) {
-            if (idx > 256)
-                throw std::out_of_range(fmt::format("[Changes_of] {} too much..", to_string(rba)) );
 
-            try {
-                auto [s1, ch] = decode_ChangeHead(view, over12c, isLittle);
-                auto [s2, lv] = decode_LengthVector(s1, isLittle);
-
-                changes.push_back( Change{ ch, std::move(lv) });
-                view = s2;
-
-            } catch (const std::exception &e) {
-                throw std::runtime_error(fmt::format("[Changes_of] {} idx {} {}", to_string(rba), idx, e.what()));
-                // coral::show_HexDump( view, std::cerr);
+            if (idx > 256)[[unlikely]] {
+                return err_of(format("[Changes_of] {} : too much Changes {}", to_string(rba), idx));
             }
+
+            // ----------------------------------------
+            auto ch_res = decode_ChangeHead(view, over12c, isLittle);
+            if (!ch_res) [[unlikely]] {
+                return err_of( format("[Changes_of] {} idx [{}] {}", to_string(rba), idx, ch_res.error()));
+            }
+            auto [s1, ch] = std::move(*ch_res);
+
+            // ----------------------------------------
+            auto lv_res = decode_LengthVector(s1, isLittle);
+            if (!lv_res) [[unlikely]] {
+                return err_of( format("[Changes_of] {} idx [{}] {}", to_string(rba), idx, lv_res.error()));
+            }
+            auto [s2, lv] = std::move(*lv_res);
+
+            out.push_back(Change{
+                .change_head    = std::move(ch),
+                .length_vector  = std::move(lv)
+            });
+
+            view = s2;
             idx++;
         }
-        return changes;
+        return true;
     }
 
     // --------------------------------------------------------------------------------

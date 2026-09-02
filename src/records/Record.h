@@ -1,9 +1,7 @@
 #pragma once
 
-#include <memory>
 #include <tcb/span.hpp>
 #include "Change.h"
-#include "ora_opCodes.h"
 #include "../blocks/RecordBound.h"
 
 namespace ora {
@@ -32,7 +30,7 @@ namespace ora {
     struct RecordHead {
         size_t size{0};
         RecordHead_Base base;
-        std::optional<RecordHead_LWN> lwn; // optional로 하는게 좋을까?
+        std::optional<RecordHead_LWN> lwn;
 
     };
 
@@ -51,14 +49,8 @@ namespace ora {
             storage.insert(storage.end(), sub.begin(), sub.end());
         }
 
-        [[nodiscard]] size_t size() const {
-            return storage.size();
-        }
-
-        [[nodiscard]] std::vector<char>& asVector() {
-            return storage;
-        }
-
+        [[nodiscard]] size_t size() const { return storage.size(); }
+        [[nodiscard]] std::vector<char>& asVector() { return storage; }
         [[nodiscard]] tcb::span<const char> asSpan() const noexcept {
             return tcb::span(storage.data(), storage.size());
         }
@@ -77,16 +69,25 @@ namespace ora {
         bool isVoid;
 
         // --------------------------------------------------------------------------------
+        mutable std::vector<Change> cache_changes{};
+        mutable bool cached = false;
+        mutable std::string cache_error{};
 
-        std::optional<std::vector<Change>> cache_changes{};
+        auto changes() const -> coral::Result<const std::vector<Change>> {
+            if (cached)
+                return cache_changes;
 
-        std::vector<Change> changes() {
-            if (!cache_changes.has_value()) {
-                cache_changes = isVoid
-                                    ? std::vector<Change>{}
-                                    : Changes_of(rba, raw.asSpan().subspan(header.size), over12c, isLittle);
+            cached = true;
+            if (isVoid) [[unlikely]] {
+                return {};
             }
-            return *cache_changes;
+
+            auto res = Changes_of(rba, raw.asSpan().subspan(header.size), over12c, isLittle, cache_changes);
+            if (!res) [[unlikely]] {
+                cache_error = res.error();
+                return tl::make_unexpected(cache_error);
+            }
+            return cache_changes;
         }
     };
 

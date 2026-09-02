@@ -2,6 +2,7 @@
 
 #include "BlockSource.h"
 #include "layout_BlockHead.h"
+#include "layout_FileHead.h"
 #include "../coral_show.h"
 
 #include "range/v3/view/transform.hpp"
@@ -9,23 +10,12 @@
 namespace ora {
 
     void Block::set_head(const bool isLittle) {
-        head = BlockHead_of(raw, isLittle);
+        head = decode_BlockHead(raw, isLittle);
     }
 
     void Block::set_bounds(const BlockCtx &ctx, const bool showReason) {
         bounds = bound_candidates(raw_span(), head.offset, head.block_no, ctx, showReason);
     }
-
-    //// Block own bytes.
-    // --------------------------------------------------------------------------------
-    Block Block_of(tcb::span<const char> raw, const bool isLittle) {
-
-        return Block{
-            std::vector(raw.begin(), raw.end()),
-            BlockHead_of(raw, isLittle)
-        };
-    }
-
     // --------------------------------------------------------------------------------
     using coral::toHex;
     using fmt::format;

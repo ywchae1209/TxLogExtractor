@@ -107,7 +107,7 @@ namespace ora {
 
         for (const auto& bound : block.bounds) {
 
-            const auto rba = RBA{block.head.log_seq_no, block.block_no(), start};
+            const auto rba = RBA{block.log_seq_no(), block.block_no(), start};
             if (!fairBound(bound, lwn_ctx, true, rba))
                 break;
 
