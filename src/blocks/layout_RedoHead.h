@@ -98,7 +98,7 @@ namespace ora {
         return WriteInfo{
             .nab              = decode_at<uint32_t, IsLittle>(buf, 0),
             .resetlogs_count  = decode_at<uint32_t, IsLittle>(buf, 4),
-            .resetlogs_scn    = decode_scn0l_at   <IsLittle>(buf, 8),
+            .resetlogs_scn    = decode_scn0l_at    <IsLittle>(buf, 8),
             .hws              = decode_at<uint32_t, IsLittle>(buf, 16),
             .thread_no        = decode_at<uint16_t, IsLittle>(buf, 20),
             // pad 2 (offset 22..23)
@@ -114,9 +114,9 @@ namespace ora {
             .eot              = decode_at<uint8_t,  IsLittle>(buf, 0),
             .dis              = decode_at<uint8_t,  IsLittle>(buf, 1),
             // pad 2 (offset 2..3)
-            .enabled_scn      = decode_scn0l_at   <IsLittle>(buf, 4),
+            .enabled_scn      = decode_scn0l_at    <IsLittle>(buf, 4),
             .enabled_epoch    = decode_at<uint32_t, IsLittle>(buf, 12),
-            .close_scn        = decode_scn0l_at   <IsLittle>(buf, 16),
+            .close_scn        = decode_scn0l_at    <IsLittle>(buf, 16),
             .close_epoch      = decode_at<uint32_t, IsLittle>(buf, 24)
         };
     }
@@ -126,7 +126,7 @@ namespace ora {
         return FileState{
             .log_format_ver   = decode_at<uint32_t, IsLittle>(buf, 0),
             .flags            = decode_at<uint32_t, IsLittle>(buf, 4),
-            .terminal_scn     = decode_scn0l_at   <IsLittle>(buf, 8),
+            .terminal_scn     = decode_scn0l_at    <IsLittle>(buf, 8),
             .terminal_epoch   = decode_at<uint32_t, IsLittle>(buf, 16)
         };
     }

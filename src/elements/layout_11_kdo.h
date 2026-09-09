@@ -26,7 +26,10 @@ namespace ora {
     };
 
 #pragma pack(push, 1)
-    //// Kdo common head
+    /** KDO Common Header (16 bytes)
+     *
+     * - Change 11.x KDO Vector의 공통 헤더
+     */
     struct KdoHead {
         uint32_t bdab;        // bdab (4 bytes, offset 0)
         uint32_t hdba;        // hdba (4 bytes, offset 4)
@@ -38,44 +41,39 @@ namespace ora {
 
         [[nodiscard]] constexpr bool is_redo() const noexcept { return op_code < 0x20; }
         [[nodiscard]] constexpr bool is_undo() const noexcept { return op_code >= 0x20; }
-
         [[nodiscard]] constexpr KdoType get_type() const noexcept {
-            // Redo/Undo의 차이(0x20 오프셋)를 제거
-            const uint8_t base_op = is_undo() ? (op_code - 0x20) : op_code;
-
-            switch (base_op) {
-                case 0x02: return KdoType::Irp;
-                case 0x03: return KdoType::Drp;
-                case 0x04: return KdoType::Lkr;
-                case 0x05: return KdoType::Urp;
-                case 0x06: return KdoType::Orp;
-                case 0x07: return KdoType::Mfc;
-                case 0x08: return KdoType::Cfa;
-                case 0x0B: return KdoType::Qmi;
-                case 0x0C: return KdoType::Qmd;
-                case 0x10: return KdoType::Lmn;
-                default:   return KdoType::Unknown;
+            switch (op_code) {
+                case 0x02: case 0x23: return KdoType::Irp; // Single Insert (Redo: 0x02, Undo: 0x23)
+                case 0x03: case 0x22: return KdoType::Drp; // Single Delete (Redo: 0x03, Undo: 0x22)
+                case 0x04: case 0x24: return KdoType::Lkr;
+                case 0x05: case 0x25: return KdoType::Urp;
+                case 0x06: case 0x26: return KdoType::Orp;
+                case 0x07: case 0x27: return KdoType::Mfc;
+                case 0x08: case 0x28: return KdoType::Cfa;
+                case 0x0B: case 0x2B: return KdoType::Qmi;
+                case 0x0C: case 0x2C: return KdoType::Qmd;
+                case 0x10: case 0x30: return KdoType::Lmn; // Logminer (0x10, 0x30)
+                default:             return KdoType::Unknown;
             }
         }
     };
+    static_assert(sizeof(KdoHead) == 16, "KdoHead size mismatch");
 #pragma pack(pop)
 
     template <bool IsLittle>
     inline KdoHead decode_kdo_head0(tcb::span<const char> buf) {
 
-        KdoHead res;
-
-        res.bdab       = decode_at<uint32_t, IsLittle>(buf, 0);
-        res.hdba       = decode_at<uint32_t, IsLittle>(buf, 4);
-        res.max_fr     = decode_at<uint16_t, IsLittle>(buf, 8);
-        res.op_code    = decode_at<uint8_t,  IsLittle>(buf, 10);
-        res.tx_type    = decode_at<uint8_t,  IsLittle>(buf, 11);
-        res.itl_slot   = decode_at<uint8_t,  IsLittle>(buf, 12);
-        res.unknown[0] = decode_at<uint8_t,  IsLittle>(buf, 13);
-        res.unknown[1] = decode_at<uint8_t,  IsLittle>(buf, 14);
-        res.unknown[2] = decode_at<uint8_t,  IsLittle>(buf, 15);
-
-        return res;
+        return KdoHead {
+            .bdab       = decode_at<uint32_t, IsLittle>(buf, 0),
+            .hdba       = decode_at<uint32_t, IsLittle>(buf, 4),
+            .max_fr     = decode_at<uint16_t, IsLittle>(buf, 8),
+            .op_code    = decode_at<uint8_t,  IsLittle>(buf, 10),
+            .tx_type    = decode_at<uint8_t,  IsLittle>(buf, 11),
+            .itl_slot   = decode_at<uint8_t,  IsLittle>(buf, 12),
+            .unknown[0] = decode_at<uint8_t,  IsLittle>(buf, 13),
+            .unknown[1] = decode_at<uint8_t,  IsLittle>(buf, 14),
+            .unknown[2] = decode_at<uint8_t,  IsLittle>(buf, 15)
+        };
     }
 
     [[nodiscard]] inline optional<KdoHead> decode_kdo_head(tcb::span<const char> buf, bool isLittle) {
@@ -88,60 +86,61 @@ namespace ora {
     }
 
 #pragma pack(push, 1)
-    //// op 2 --------------------------------------------------------------------------------\n
-    //// Insert :: KdoIrp == KdoHead + KdoIrpBody
+
+    /** KDO IRP Body - Insert Row Piece (36 bytes)
+     *
+     * - Opcode: 0x02 (Redo), 0x23 (Undo)
+     * - Insert :: KdoIrp == KdoHead + KdoIrpBody
+     */
     struct KdoIrpBody {
-        uint8_t  flag_byte;   // flag byte (1 byte, offset 0)
-        uint8_t  lock_byte;   // lock byte (1 byte, offset 1)
-        uint8_t  cc;          // column count (1 byte, offset 2)
-        uint8_t  unknown0;    // unknown (1 byte, offset 3)
+        uint8_t  flag_byte;   // (1 byte, offset 0) Flag byte
+        uint8_t  lock_byte;   // (1 byte, offset 1) Lock byte
+        uint8_t  cc;          // (1 byte, offset 2) Column count
+        uint8_t  unknown0;    // (1 byte, offset 3)
+        uint32_t hdba;        // (4 bytes, offset 4) Head DBA
 
-        uint32_t hdba;        // head DBA (4 bytes, offset 4)
+        uint16_t unknown1;    // (2 bytes, offset 8)
+        uint16_t hslot;       // (2 bytes, offset 10) Head Slot  -- todo :: encoding ?
 
-        uint16_t unknown1;    // unknown (2 bytes, offset 8)
-        uint16_t hslot;       // head Slot (2 bytes, offset 10)     todo :: --encoding
+        uint32_t ndba;        // (4 bytes, offset 12) Next row DBA
 
-        uint32_t ndba;        // next row DBA (4 bytes, offset 12)
+        uint16_t unknown2;    // (2 bytes, offset 16) Reserved
+        uint16_t nslot;       // (2 bytes, offset 18) Next row slot -- todo :: encoding ?
 
-        uint16_t unknown2;    // unknown (2 bytes, offset 16)
-        uint16_t nslot;       // next row slot (2 bytes, offset 18) todo :: --encoding
+        uint32_t unknown3;    // (4 bytes, offset 20)
 
-        uint32_t unknown3;    // unknown (4 bytes, offset 20)
+        uint16_t size;        // (2 bytes, offset 24) Size
+        uint16_t slot;        // (2 bytes, offset 26) Slot
+        uint8_t  unknown4;    // (1 byte, offset 28)
+        uint8_t  unknown5;    // (1 byte, offset 29)
+        uint16_t unknown6;    // (2 bytes, offset 30)
 
-        uint16_t size;        // size (2 bytes, offset 24)
-        uint16_t slot;        // slot (2 bytes, offset 26)
-
-        uint8_t  unknown4;    // unknown (1 byte, offset 28)        todo :: isCmdRow ???
-        uint8_t  unknown5;    // unknown (1 byte, offset 29)
-        uint16_t unknown6;    // unknown (2 bytes, offset 30)
-
-        uint32_t unknown7;    // unknown (4 bytes, offset 32)
+        uint32_t unknown7;    // (4 bytes, offset 32)
     };
+    static_assert(sizeof(KdoIrpBody) == 36, "KdoIrpBody size mismatch");
 #pragma pack(pop)
 
     template <bool IsLittle>
     inline KdoIrpBody decode_kdo_irp_body0(tcb::span<const char> buf) {
-        KdoIrpBody res;
-
-        res.flag_byte = decode_at<uint8_t,  IsLittle>(buf, 0);
-        res.lock_byte = decode_at<uint8_t,  IsLittle>(buf, 1);
-        res.cc        = decode_at<uint8_t,  IsLittle>(buf, 2);
-        res.unknown0  = decode_at<uint8_t,  IsLittle>(buf, 3);
-        res.hdba      = decode_at<uint32_t, IsLittle>(buf, 4);
-        res.unknown1  = decode_at<uint16_t, IsLittle>(buf, 8);
-        res.hslot     = decode_at<uint16_t, IsLittle>(buf, 10);
-        res.ndba      = decode_at<uint32_t, IsLittle>(buf, 12);
-        res.unknown2  = decode_at<uint16_t, IsLittle>(buf, 16);
-        res.nslot     = decode_at<uint16_t, IsLittle>(buf, 18);
-        res.unknown3  = decode_at<uint32_t, IsLittle>(buf, 20);
-        res.size      = decode_at<uint16_t, IsLittle>(buf, 24);
-        res.slot      = decode_at<uint16_t, IsLittle>(buf, 26);
-        res.unknown4  = decode_at<uint8_t,  IsLittle>(buf, 28);
-        res.unknown5  = decode_at<uint8_t,  IsLittle>(buf, 29);
-        res.unknown6  = decode_at<uint16_t, IsLittle>(buf, 30);
-        res.unknown7  = decode_at<uint32_t, IsLittle>(buf, 32);
-
-        return res;
+        return KdoIrpBody {
+            .flag_byte = decode_at<uint8_t,  IsLittle>(buf, 0),
+            .lock_byte = decode_at<uint8_t,  IsLittle>(buf, 1),
+            .cc        = decode_at<uint8_t,  IsLittle>(buf, 2),
+            .unknown0  = decode_at<uint8_t,  IsLittle>(buf, 3),
+            .hdba      = decode_at<uint32_t, IsLittle>(buf, 4),
+            .unknown1  = decode_at<uint16_t, IsLittle>(buf, 8),
+            .hslot     = decode_at<uint16_t, IsLittle>(buf, 10),
+            .ndba      = decode_at<uint32_t, IsLittle>(buf, 12),
+            .unknown2  = decode_at<uint16_t, IsLittle>(buf, 16),
+            .nslot     = decode_at<uint16_t, IsLittle>(buf, 18),
+            .unknown3  = decode_at<uint32_t, IsLittle>(buf, 20),
+            .size      = decode_at<uint16_t, IsLittle>(buf, 24),
+            .slot      = decode_at<uint16_t, IsLittle>(buf, 26),
+            .unknown4  = decode_at<uint8_t,  IsLittle>(buf, 28),
+            .unknown5  = decode_at<uint8_t,  IsLittle>(buf, 29),
+            .unknown6  = decode_at<uint16_t, IsLittle>(buf, 30),
+            .unknown7  = decode_at<uint32_t, IsLittle>(buf, 32)
+        };
     }
 
     [[nodiscard]] inline optional<KdoIrpBody> decode_kdo_irp_body(tcb::span<const char> buf, bool isLittle) {
@@ -154,22 +153,24 @@ namespace ora {
     }
 
 #pragma pack(push, 1)
-    //// op 3 --------------------------------------------------------------------------------\n
-    //// Delete :: KdoDrp == KdoHead + KdoDrpBody
+    /** KDO DRP Body - Delete Row Piece (4 bytes)
+     *
+     * - Opcode: 0x03 (Redo), 0x22 (Undo)
+     * - Delete :: KdoDrp == KdoHead + KdoDrpBody
+     */
     struct KdoDrpBody {
-        uint16_t size;  // size (2 bytes, offset 0)
-        uint16_t slot;  // slot (2 bytes, offset 2)
+        uint16_t size;  // (2 bytes, offset 0) size
+        uint16_t slot;  // (2 bytes, offset 2) slot
     };
+    static_assert(sizeof(KdoDrpBody) == 4, "KdoDrpBody size mismatch");
 #pragma pack(pop)
 
     template <bool IsLittle>
     inline KdoDrpBody decode_kdo_drp_body0(tcb::span<const char> buf) {
-        KdoDrpBody res;
-
-        res.size = decode_at<uint16_t, IsLittle>(buf, 0);
-        res.slot = decode_at<uint16_t, IsLittle>(buf, 2);
-
-        return res;
+        return KdoDrpBody {
+            .size = decode_at<uint16_t, IsLittle>(buf, 0),
+            .slot = decode_at<uint16_t, IsLittle>(buf, 2)
+        };
     }
 
     [[nodiscard]] inline optional<KdoDrpBody> decode_kdo_drp_body(tcb::span<const char> buf, bool isLittle) {
@@ -181,26 +182,27 @@ namespace ora {
                         : decode_kdo_drp_body0<false>(buf);
     }
 
-
 #pragma pack(push, 1)
-    //// op 4 --------------------------------------------------------------------------------\n
-    //// Lock :: KdoLkr == KdoHead + KdoLkrBody
+    /** KDO LKR Body - Lock Row Piece (4 bytes)
+     *
+     * - Opcode: 0x04 (Redo), 0x24 (Undo)
+     * - Lock :: KdoLkr == KdoHead + KdoLkrBody
+     */
     struct KdoLkrBody {
-        uint16_t slot;     // slot (2 bytes, offset 0)
-        uint8_t  unknown;  // unknown (1 byte, offset 2)
-        uint8_t  lock;     // lock (1 byte, offset 3)
+        uint16_t slot;     // (2 bytes, offset 0) slot
+        uint8_t  unknown;  // (1 byte, offset 2) unknown
+        uint8_t  lock;     // (1 byte, offset 3) lock
     };
+    static_assert(sizeof(KdoLkrBody) == 4, "KdoLkrBody size mismatch");
 #pragma pack(pop)
 
     template <bool IsLittle>
     inline KdoLkrBody decode_kdo_lkr_body0(tcb::span<const char> buf) {
-        KdoLkrBody res;
-
-        res.slot    = decode_at<uint16_t, IsLittle>(buf, 0);
-        res.unknown = decode_at<uint8_t,  IsLittle>(buf, 2);
-        res.lock    = decode_at<uint8_t,  IsLittle>(buf, 3);
-
-        return res;
+        return KdoLkrBody {
+            .slot    = decode_at<uint16_t, IsLittle>(buf, 0),
+            .unknown = decode_at<uint8_t,  IsLittle>(buf, 2),
+            .lock    = decode_at<uint8_t,  IsLittle>(buf, 3)
+        };
     }
 
     [[nodiscard]] inline optional<KdoLkrBody> decode_kdo_lkr_body(tcb::span<const char> buf, bool isLittle) {
@@ -213,40 +215,43 @@ namespace ora {
     }
 
 #pragma pack(push, 1)
-    //// op 5 --------------------------------------------------------------------------------\n
-    //// Update :: KdoUrp == KdoHead + KdoUrpBody
+    /** KDO URP Body - Update Row Piece (13 bytes)
+     *
+     * - Opcode: 0x05 (Redo), 0x25 (Undo)
+     * - Update :: KdoUrp == KdoHead + KdoUrpBody
+     */
     struct KdoUrpBody {
-        uint8_t  flag_byte;   // flag byte (1 byte, offset 0)
-        uint8_t  lock_byte;   // lock byte (1 byte, offset 1)
-        uint8_t  ckix;        // ckix (1 byte, offset 2)
-        uint8_t  tabn;        // tabn (1 byte, offset 3)
+        uint8_t  flag_byte;   // (1 byte, offset 0) Flag byte
+        uint8_t  lock_byte;   // (1 byte, offset 1) Lock byte
+        uint8_t  ckix;        // (1 byte, offset 2) ckix ?
+        uint8_t  tabn;        // (1 byte, offset 3) Table number
 
-        uint16_t slot;        // slot (2 bytes, offset 4)
-        uint8_t  ncol;        // total column count in row (1 byte, offset 6)
-        uint8_t  nnew;        // updated column count in row (1 byte, offset 7)
+        uint16_t slot;        // (2 bytes, offset 4) Slot
+        uint8_t  ncol;        // (1 byte, offset 6) Total column count in row
+        uint8_t  nnew;        // (1 byte, offset 7) Updated column count in row
 
-        uint16_t size;        // size (2 bytes, offset 8)
-        uint8_t  unknown0[3]; // unknown[3] (3 bytes, offset 10~12)
+        uint16_t size;        // (2 bytes, offset 8)
+        uint8_t  unknown0[3]; // (3 bytes, offset 10~12) todo :: size ???
+
     };
+    static_assert(sizeof(KdoUrpBody) == 13, "KdoUrpBody size mismatch");
 #pragma pack(pop)
 
     template <bool IsLittle>
     inline KdoUrpBody decode_kdo_urp_body0(tcb::span<const char> buf) {
-        KdoUrpBody res;
-
-        res.flag_byte   = decode_at<uint8_t,  IsLittle>(buf, 0);
-        res.lock_byte   = decode_at<uint8_t,  IsLittle>(buf, 1);
-        res.ckix        = decode_at<uint8_t,  IsLittle>(buf, 2);
-        res.tabn        = decode_at<uint8_t,  IsLittle>(buf, 3);
-        res.slot        = decode_at<uint16_t, IsLittle>(buf, 4);
-        res.ncol        = decode_at<uint8_t,  IsLittle>(buf, 6);
-        res.nnew        = decode_at<uint8_t,  IsLittle>(buf, 7);
-        res.size        = decode_at<uint16_t, IsLittle>(buf, 8);
-        res.unknown0[0] = decode_at<uint8_t,  IsLittle>(buf, 10);
-        res.unknown0[1] = decode_at<uint8_t,  IsLittle>(buf, 11);
-        res.unknown0[2] = decode_at<uint8_t,  IsLittle>(buf, 12);
-
-        return res;
+        return KdoUrpBody {
+            .flag_byte   = decode_at<uint8_t,  IsLittle>(buf, 0),
+            .lock_byte   = decode_at<uint8_t,  IsLittle>(buf, 1),
+            .ckix        = decode_at<uint8_t,  IsLittle>(buf, 2),
+            .tabn        = decode_at<uint8_t,  IsLittle>(buf, 3),
+            .slot        = decode_at<uint16_t, IsLittle>(buf, 4),
+            .ncol        = decode_at<uint8_t,  IsLittle>(buf, 6),
+            .nnew        = decode_at<uint8_t,  IsLittle>(buf, 7),
+            .size        = decode_at<uint16_t, IsLittle>(buf, 8),
+            .unknown0[0] = decode_at<uint8_t,  IsLittle>(buf, 10),
+            .unknown0[1] = decode_at<uint8_t,  IsLittle>(buf, 11),
+            .unknown0[2] = decode_at<uint8_t,  IsLittle>(buf, 12)
+        };
     }
 
     [[nodiscard]] inline optional<KdoUrpBody> decode_kdo_urp_body(tcb::span<const char> buf, bool isLittle) {
@@ -259,9 +264,10 @@ namespace ora {
     }
 
 #pragma pack(push, 1)
-    //// op 6 --------------------------------------------------------------------------------\n
-    //// Overwrite :: KdoOrp == KdoHead + KdoOrpBody
-    //// sizeof(KdoOrpBody) == 29
+    /** KDO ORP Body - Overwrite Row Piece (29 bytes)
+     * - Opcode: 0x06 (Redo), 0x26 (Undo)
+     * - Overwrite :: KdoOrp == KdoHead + KdoOrpBody
+     */
     struct KdoOrpBody {
         uint8_t  flag_byte;  // flag byte (1 byte, offset 0)
         uint8_t  lock_byte;  // lock byte (1 byte, offset 1)
@@ -281,27 +287,28 @@ namespace ora {
         uint16_t slot;       // slot (2 bytes, offset 26)
         uint8_t  tabn;       // table number (1 byte, offset 28)
     };
+    static_assert(sizeof(KdoOrpBody) == 29, "KdoOrpBody size mismatch");
+
 #pragma pack(pop)
 
     template <bool IsLittle>
     inline KdoOrpBody decode_kdo_orp_body0(tcb::span<const char> buf) {
-        KdoOrpBody res;
+        return KdoOrpBody {
+            .flag_byte = decode_at<uint8_t,  IsLittle>(buf, 0),
+            .lock_byte = decode_at<uint8_t,  IsLittle>(buf, 1),
+            .cc        = decode_at<uint8_t,  IsLittle>(buf, 2),
+            .unknown0  = decode_at<uint8_t,  IsLittle>(buf, 3),
+            .dba2      = decode_at<uint32_t, IsLittle>(buf, 4),
+            .unknown1  = decode_at<uint16_t, IsLittle>(buf, 8),
+            .unknown2  = decode_at<uint16_t, IsLittle>(buf, 10),
+            .unknown3  = decode_at<uint32_t, IsLittle>(buf, 12),
+            .unknown4  = decode_at<uint32_t, IsLittle>(buf, 16),
+            .unknown5  = decode_at<uint32_t, IsLittle>(buf, 20),
+            .size      = decode_at<uint16_t, IsLittle>(buf, 24),
+            .slot      = decode_at<uint16_t, IsLittle>(buf, 26),
+            .tabn      = decode_at<uint8_t,  IsLittle>(buf, 28)
+        };
 
-        res.flag_byte = decode_at<uint8_t,  IsLittle>(buf, 0);
-        res.lock_byte = decode_at<uint8_t,  IsLittle>(buf, 1);
-        res.cc        = decode_at<uint8_t,  IsLittle>(buf, 2);
-        res.unknown0  = decode_at<uint8_t,  IsLittle>(buf, 3);
-        res.dba2      = decode_at<uint32_t, IsLittle>(buf, 4);
-        res.unknown1  = decode_at<uint16_t, IsLittle>(buf, 8);
-        res.unknown2  = decode_at<uint16_t, IsLittle>(buf, 10);
-        res.unknown3  = decode_at<uint32_t, IsLittle>(buf, 12);
-        res.unknown4  = decode_at<uint32_t, IsLittle>(buf, 16);
-        res.unknown5  = decode_at<uint32_t, IsLittle>(buf, 20);
-        res.size      = decode_at<uint16_t, IsLittle>(buf, 24);
-        res.slot      = decode_at<uint16_t, IsLittle>(buf, 26);
-        res.tabn      = decode_at<uint8_t,  IsLittle>(buf, 28);
-
-        return res;
     }
 
     [[nodiscard]] inline std::optional<KdoOrpBody> decode_kdo_orp_body(tcb::span<const char> buf, bool isLittle) {
@@ -314,24 +321,25 @@ namespace ora {
     }
 
 #pragma pack(push, 1)
-    //// op 7 --------------------------------------------------------------------------------\n
-    //// Manipulate first col :: KdoMfc == KdoHead + KdoMfcBody
+    /** KDO MFC Body - Manipulate First Column (4 bytes)
+     * - Opcode: 0x07 (Redo), 0x27 (Undo)
+     * - Manipulate first col :: KdoMfc == KdoHead + KdoMfcBody
+     */
     struct KdoMfcBody {
-        uint16_t slot;            // slot (2 bytes, offset 0)
-        uint8_t  unknown0;        // unknown (1 byte, offset 2)
-        uint8_t  manipulate_code; // manipulate code (1 byte, offset 3) -- not certain.
+        uint16_t slot;            // (2 bytes, offset 0) slot
+        uint8_t  unknown0;        // (1 byte, offset 2) reserved
+        uint8_t  manipulate_code; // (1 byte, offset 3) manipulate code
     };
+    static_assert(sizeof(KdoMfcBody) == 4, "KdoMfcBody size mismatch");
 #pragma pack(pop)
 
     template <bool IsLittle>
     inline KdoMfcBody decode_kdo_mfc_body0(tcb::span<const char> buf) {
-        KdoMfcBody res;
-
-        res.slot            = decode_at<uint16_t, IsLittle>(buf, 0);
-        res.unknown0        = decode_at<uint8_t,  IsLittle>(buf, 2);
-        res.manipulate_code = decode_at<uint8_t,  IsLittle>(buf, 3);
-
-        return res;
+        return KdoMfcBody {
+            .slot            = decode_at<uint16_t, IsLittle>(buf, 0),
+            .unknown0        = decode_at<uint8_t,  IsLittle>(buf, 2),
+            .manipulate_code = decode_at<uint8_t,  IsLittle>(buf, 3)
+        };
     }
 
     [[nodiscard]] inline std::optional<KdoMfcBody> decode_kdo_mfc_body(tcb::span<const char> buf, bool isLittle) {
@@ -344,33 +352,31 @@ namespace ora {
     }
 
 #pragma pack(push, 1)
-    //// op 8 --------------------------------------------------------------------------------\n
-    //// Change Forward Address :: KdoCfa == KdoHead + KdoCfaBody
+    /** KDO CFA Body - Change Forwarding Address (16 bytes)
+     * - Opcode: 0x08 (Redo), 0x28 (Undo)
+     * - Change Forward Address :: KdoCfa == KdoHead + KdoCfaBody
+     */
     struct KdoCfaBody {
-        uint32_t change_dba;  // change dba (4 bytes, offset 0)
-
-        uint16_t change_slot; // change slot (2 bytes, offset 4) todo check ++endian
-        uint16_t unknown0;    // unknown (2 bytes, offset 6)
-
-        uint16_t slot;        // slot (2 bytes, offset 8)
-        uint16_t unknown1;    // unknown (2 bytes, offset 10)
-
-        uint32_t unknown2;    // unknown (4 bytes, offset 12)
+        uint32_t change_dba;  // (4 bytes, offset 0) Change DBA
+        uint16_t change_slot; // (2 bytes, offset 4) Change slot
+        uint16_t unknown0;    // (2 bytes, offset 6)
+        uint16_t slot;        // (2 bytes, offset 8) Slot
+        uint16_t unknown1;    // (2 bytes, offset 10)
+        uint32_t unknown2;    // (4 bytes, offset 12)
     };
+    static_assert(sizeof(KdoCfaBody) == 16, "KdoCfaBody size mismatch");
 #pragma pack(pop)
 
     template <bool IsLittle>
     inline KdoCfaBody decode_kdo_cfa_body0(tcb::span<const char> buf) {
-        KdoCfaBody res;
-
-        res.change_dba  = decode_at<uint32_t, IsLittle>(buf, 0);
-        res.change_slot = decode_at<uint16_t, IsLittle>(buf, 4);
-        res.unknown0    = decode_at<uint16_t, IsLittle>(buf, 6);
-        res.slot        = decode_at<uint16_t, IsLittle>(buf, 8);
-        res.unknown1    = decode_at<uint16_t, IsLittle>(buf, 10);
-        res.unknown2    = decode_at<uint32_t, IsLittle>(buf, 12);
-
-        return res;
+        return KdoCfaBody {
+            .change_dba  = decode_at<uint32_t, IsLittle>(buf, 0),
+            .change_slot = decode_at<uint16_t, IsLittle>(buf, 4),
+            .unknown0    = decode_at<uint16_t, IsLittle>(buf, 6),
+            .slot        = decode_at<uint16_t, IsLittle>(buf, 8),
+            .unknown1    = decode_at<uint16_t, IsLittle>(buf, 10),
+            .unknown2    = decode_at<uint32_t, IsLittle>(buf, 12)
+        };
     }
 
     [[nodiscard]] inline optional<KdoCfaBody> decode_kdo_cfa_body(tcb::span<const char> buf, bool isLittle) {
@@ -382,12 +388,14 @@ namespace ora {
                         : decode_kdo_cfa_body0<false>(buf);
     }
 
-    //// op 11 --------------------------------------------------------------------------------\n
-    //// Quick Multi Insert/Delete :: KdoQmi == KdoHead + KdoQmiBody
+    /** KDO QMI Body - Quick Multi Insert/Delete
+     * - Opcode: 0x0B, 0x2B, 0x0C, 0x2C
+     * - Quick Multi Insert/Delete :: KdoQmi == KdoHead + KdoQmiBody
+     */
     struct KdoQmiBody {
-        uint16_t unknown;            // unknown (2 bytes, offset 0)
-        uint16_t nrow;               // number of rows (2 bytes, offset 2)  todo:: endian check
-        std::vector<uint16_t> slots; // slot[nrow] (2 bytes * nrow, offset 4부터 시작)
+        uint16_t unknown;            // (2 bytes, offset 0) Reserved
+        uint16_t nrow;               // (2 bytes, offset 2) Number of rows
+        std::vector<uint16_t> slots; // (2 bytes * nrow, offset 4~) Slots
     };
 
     template <bool IsLittle>
@@ -423,21 +431,31 @@ namespace ora {
     }
 
     // ----------------------------------------------------------------------------------------------------
+    /** KDO Lwn Body - Logminer Operations
+     * - Opcode: 0x10 (Redo), 0x30 (Undo)
+     * - span container
+     */
+    struct KdoLwnBody {
+        tcb::span<const char> data;
+    };
+
+    // ----------------------------------------------------------------------------------------------------
     struct KdoRawBody {
         tcb::span<const char> data;
     };
 
     // ----------------------------------------------------------------------------------------------------
     using KdoBody = std::variant<
-        KdoIrpBody,         // 0x02, 0x23 (Single Insert)
-        KdoDrpBody,         // 0x03, 0x22 (Single Delete)
+        KdoIrpBody,         // 0x02, 0x23 (Single Insert) --
+        KdoDrpBody,         // 0x03, 0x22 (Single Delete) --
         KdoLkrBody,         // 0x04, 0x24 (Lock Row)
         KdoUrpBody,         // 0x05, 0x25 (Single Update)
         KdoOrpBody,         // 0x06, 0x26 (Overwrite Row)
         KdoMfcBody,         // 0x07, 0x27 (Manipulate First Column)
         KdoCfaBody,         // 0x08, 0x28 (Change Forwarding Address)
         KdoQmiBody,         // 0x0B, 0x2B, 0x0C, 0x2C (QMI, QMD)
-        KdoRawBody          // 기타 (LMN..)
+        KdoLwnBody,         // 0x10, 0x30 (Logminer)
+        KdoRawBody          // fallback
     >;
 
     // ----------------------------------------------------------------------------------------------------
@@ -514,8 +532,12 @@ namespace ora {
                 result.body = *body;
                 break;
             }
-
-            // fallback (LMN, Unknown...)
+            case KdoType::Lmn: // Logminer (Redo: 0x10, Undo: 0x30)
+            {
+                result.body = KdoLwnBody{ body_buf };
+                break;
+            }
+            // fallback
             default:
             {
                 result.body = KdoRawBody{ body_buf };
