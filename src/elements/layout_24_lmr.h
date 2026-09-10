@@ -2,10 +2,11 @@
 
 #include "tcb/span.hpp"
 #include "../coral_decode.h"
+#include "../coral_result.h"
 
 namespace ora {
 
-    using coral::decode_at;
+    using coral::decode_at, coral::Result, coral::err_of;
     using std::optional;
 
 #pragma pack(push, 1)
@@ -46,9 +47,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktmrm> decode_ktmrm(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktmrm)) { // sizeof(Ktmrm) == 16
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktmrm> decode_ktmrm(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktmrm); buf.size() < sz) {
+            return err_of(fmt::format("[Ktmrm] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktmrm0<true>(buf)
@@ -96,9 +97,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktptx> decode_ktptx(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktptx)) { // sizeof(Ktptx) == 28
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktptx> decode_ktptx(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktptx); buf.size() < sz) {
+            return err_of(fmt::format("[Ktptx] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktptx0<true>(buf)
@@ -132,9 +133,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Kttxs> decode_kttxs(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Kttxs)) { // sizeof(Kttxs) == 4
-            return std::nullopt;
+    [[nodiscard]] inline Result<Kttxs> decode_kttxs(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Kttxs); buf.size() < sz) {
+            return err_of(fmt::format("[Kttxs] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kttxs0<true>(buf)
@@ -172,9 +173,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktdlr> decode_ktdlr(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktdlr)) { // sizeof(Ktdlr) == 16
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktdlr> decode_ktdlr(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktdlr); buf.size() < sz) {
+            return err_of(fmt::format("[Ktdlr] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktdlr0<true>(buf)

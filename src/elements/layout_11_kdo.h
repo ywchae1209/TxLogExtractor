@@ -3,12 +3,13 @@
 #include <cstdint>
 #include "tcb/span.hpp"
 #include "../coral_decode.h"
+#include "../coral_result.h"
 #include <variant>
 
 //// https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-KDOvector(KernalDataOperation)
 namespace ora {
 
-    using coral::decode_at;
+    using coral::decode_at, coral::Result, coral::err_of;
     using std::optional;
 
     enum class KdoType : uint8_t {
@@ -76,9 +77,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline optional<KdoHead> decode_kdo_head(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(KdoHead)) { // sizeof(KdoHead) == 16
-            return std::nullopt;
+    [[nodiscard]] inline Result<KdoHead> decode_kdo_head(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(KdoHead); buf.size() < sz) {
+            return err_of(fmt::format("[KdoHead] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kdo_head0<true>(buf)
@@ -143,9 +144,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline optional<KdoIrpBody> decode_kdo_irp_body(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(KdoIrpBody)) { // sizeof(KdoIrpBody) == 36
-            return std::nullopt;
+    [[nodiscard]] inline Result<KdoIrpBody> decode_kdo_irp_body(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(KdoIrpBody); buf.size() < sz) {
+            return err_of(fmt::format("[KdoIrpBody] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kdo_irp_body0<true>(buf)
@@ -173,9 +174,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline optional<KdoDrpBody> decode_kdo_drp_body(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(KdoDrpBody)) { // sizeof(KdoDrpBody) == 4
-            return std::nullopt;
+    [[nodiscard]] inline Result<KdoDrpBody> decode_kdo_drp_body(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(KdoDrpBody); buf.size() < sz) {
+            return err_of(fmt::format("[KdoDrpBody] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kdo_drp_body0<true>(buf)
@@ -205,9 +206,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline optional<KdoLkrBody> decode_kdo_lkr_body(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(KdoLkrBody)) { // sizeof(KdoLkrBody) == 4
-            return std::nullopt;
+    [[nodiscard]] inline Result<KdoLkrBody> decode_kdo_lkr_body(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(KdoLkrBody); buf.size() < sz) {
+            return err_of(fmt::format("[KdoLkrBody] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kdo_lkr_body0<true>(buf)
@@ -254,9 +255,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline optional<KdoUrpBody> decode_kdo_urp_body(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(KdoUrpBody)) { // sizeof(KdoUrpBody) == 13
-            return std::nullopt;
+    [[nodiscard]] inline Result<KdoUrpBody> decode_kdo_urp_body(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(KdoUrpBody); buf.size() < sz) {
+            return err_of(fmt::format("[KdoUrpBody] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kdo_urp_body0<true>(buf)
@@ -311,9 +312,9 @@ namespace ora {
 
     }
 
-    [[nodiscard]] inline std::optional<KdoOrpBody> decode_kdo_orp_body(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(KdoOrpBody)) { // sizeof(KdoOrpBody) == 29
-            return std::nullopt;
+    [[nodiscard]] inline Result<KdoOrpBody> decode_kdo_orp_body(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(KdoOrpBody); buf.size() < sz) {
+            return err_of(fmt::format("[KdoOrpBody] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kdo_orp_body0<true>(buf)
@@ -342,9 +343,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<KdoMfcBody> decode_kdo_mfc_body(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(KdoMfcBody)) { // sizeof(KdoMfcBody) == 4
-            return std::nullopt;
+    [[nodiscard]] inline Result<KdoMfcBody> decode_kdo_mfc_body(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(KdoMfcBody); buf.size() < sz) {
+            return err_of(fmt::format("[KdoMfcBody] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kdo_mfc_body0<true>(buf)
@@ -379,9 +380,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline optional<KdoCfaBody> decode_kdo_cfa_body(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(KdoCfaBody)) { // sizeof(KdoCfaBody) == 16
-            return std::nullopt;
+    [[nodiscard]] inline Result<KdoCfaBody> decode_kdo_cfa_body(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(KdoCfaBody); buf.size() < sz) {
+            return err_of(fmt::format("[KdoCfaBody] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kdo_cfa_body0<true>(buf)
@@ -416,15 +417,16 @@ namespace ora {
         return res;
     }
 
-    [[nodiscard]] inline optional<KdoQmiBody> decode_kdo_qmi_body(tcb::span<const char> buf, bool isLittle) {
+    [[nodiscard]] inline Result<KdoQmiBody> decode_kdo_qmi_body(tcb::span<const char> buf, bool isLittle) {
 
-        if (buf.size() < 4) return std::nullopt;
+        if (buf.size() < 4) return err_of(fmt::format("[KdoQmiBody] buf0-size ({}) < 4", buf.size()));
+
         const uint16_t nRow = isLittle
                                   ? decode_at<uint16_t, true>(buf, 2)
                                   : decode_at<uint16_t, false>(buf, 2);
 
         const auto need = 4 + sizeof(uint16_t) * nRow;
-        if (buf.size() < need) return std::nullopt;
+        if (buf.size() < need) return err_of(fmt::format("[KdoQmiBody] buf-size ({}) < {}", buf.size(), need));
 
         return isLittle ? decode_kdo_qmi_body0<true>(buf, nRow)
                         : decode_kdo_qmi_body0<false>(buf, nRow);
@@ -464,10 +466,10 @@ namespace ora {
         KdoBody body;
     };
 
-    [[nodiscard]] inline optional<KdoVector> decode_kdo(tcb::span<const char> buf, bool isLittle) {
+    [[nodiscard]] inline Result<KdoVector> decode_kdo(tcb::span<const char> buf, bool isLittle) {
 
         auto head_opt = decode_kdo_head(buf, isLittle);
-        if (!head_opt) return std::nullopt;
+        if (!head_opt) return tl::make_unexpected( head_opt.error() );
 
         KdoVector result;
         result.head = *head_opt;
@@ -478,49 +480,49 @@ namespace ora {
             case KdoType::Irp: // Single Insert (Redo: 0x02, Undo: 0x23)
             {
                 auto body = decode_kdo_irp_body(body_buf, isLittle);
-                if (!body) return std::nullopt;
+                if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Drp: // Single Delete (Redo: 0x03, Undo: 0x22)
             {
                 auto body = decode_kdo_drp_body(body_buf, isLittle);
-                if (!body) return std::nullopt;
+                if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Lkr: // Lock Row (Redo: 0x04, Undo: 0x24)
             {
                 auto body = decode_kdo_lkr_body(body_buf, isLittle);
-                if (!body) return std::nullopt;
+                if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Urp: // Single Update (Redo: 0x05, Undo: 0x25)
             {
                 auto body = decode_kdo_urp_body(body_buf, isLittle);
-                if (!body) return std::nullopt;
+                if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Orp: // Overwrite Row (Redo: 0x06, Undo: 0x26)
             {
                 auto body = decode_kdo_orp_body(body_buf, isLittle);
-                if (!body) return std::nullopt;
+                if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Mfc: // Manipulate First Column (Redo: 0x07, Undo: 0x27)
             {
                 auto body = decode_kdo_mfc_body(body_buf, isLittle);
-                if (!body) return std::nullopt;
+                if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Cfa: // Change Forwarding Address (Redo: 0x08, Undo: 0x28)
             {
                 auto body = decode_kdo_cfa_body(body_buf, isLittle);
-                if (!body) return std::nullopt;
+                if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
@@ -528,7 +530,7 @@ namespace ora {
             case KdoType::Qmd: // Quick Multi-Delete (Redo: 0x0C, Undo: 0x2C)
             {
                 auto body = decode_kdo_qmi_body(body_buf, isLittle);
-                if (!body) return std::nullopt;
+                if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }

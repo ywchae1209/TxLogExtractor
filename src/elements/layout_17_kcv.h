@@ -2,10 +2,11 @@
 
 #include "tcb/span.hpp"
 #include "../coral_decode.h"
+#include "../coral_result.h"
 
 namespace ora {
 
-    using coral::decode_at;
+    using coral::decode_at, coral::Result, coral::err_of;
     using std::optional;
 
 
@@ -37,9 +38,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktrth> decode_ktrth(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktrth)) { // sizeof(Ktrth) == 16
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktrth> decode_ktrth(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktrth); buf.size() < sz) {
+            return err_of(fmt::format("[Ktrth] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktrth0<true>(buf)

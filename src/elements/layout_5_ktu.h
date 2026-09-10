@@ -3,10 +3,12 @@
 
 #include "tcb/span.hpp"
 #include "../coral_decode.h"
+#include "../coral_result.h"
+
 
 namespace ora {
 
-    using coral::decode_at;
+    using coral::decode_at, coral::Result, coral::err_of;
     using std::optional;
 
 #pragma pack(push, 1)
@@ -47,9 +49,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktudb> decode_ktudb(tcb::span<const char> buf, const bool isLittle) {
-        if (buf.size() < sizeof(Ktudb)) {
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktudb> decode_ktudb(tcb::span<const char> buf, const bool isLittle) {
+        if (auto sz = sizeof(Ktudb); buf.size() < sz) {
+            return err_of(fmt::format("[Ktudb] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktudb0<true>(buf)
@@ -104,10 +106,11 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktudh> decode_ktudh(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktudh)) { // sizeof(Ktudh) == 32
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktudh> decode_ktudh(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktudh); buf.size() < sz) {
+            return err_of(fmt::format("[Ktudh] buf-size ({}) < {}", buf.size(), sz));
         }
+
         return isLittle ? decode_ktudh0<true>(buf)
                         : decode_ktudh0<false>(buf);
     }
@@ -126,7 +129,7 @@ namespace ora {
      *
      * - Transaction ID의 Usn는 Change header의 cls에 기록 → usn = (cls - 15) / 2
     */
-    struct Ktcum {
+    struct Ktucm {
         uint16_t xid_slt;      // (2 bytes, offset 0) XID Slot
         uint16_t unknown;      // (2 bytes, offset 2) Reserved
         uint32_t xid_sqn;      // (4 bytes, offset 4) XID Sequence Number
@@ -136,12 +139,12 @@ namespace ora {
         uint8_t  flag;         // (1 byte, offset 16) Flag (0x4 = Rollback)
         uint8_t  unknown2[3];  // (3 bytes, offset 17) Reserved
     };
-    static_assert(sizeof(Ktcum) == 20, "Ktcum size mismatch");
+    static_assert(sizeof(Ktucm) == 20, "Ktcum size mismatch");
 #pragma pack(pop)
 
     template <bool IsLittle>
-    inline Ktcum decode_ktcum0(tcb::span<const char> buf) {
-        return Ktcum{
+    inline Ktucm decode_ktucm0(tcb::span<const char> buf) {
+        return Ktucm{
             .xid_slt  = decode_at<uint16_t, IsLittle>(buf, 0),
             .unknown  = decode_at<uint16_t, IsLittle>(buf, 2),
             .xid_sqn  = decode_at<uint32_t, IsLittle>(buf, 4),
@@ -161,13 +164,13 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktcum> decode_ktcum(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktcum)) { // sizeof(Ktcum) == 20
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktucm> decode_ktucm(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktucm); buf.size() < sz) {
+            return err_of(fmt::format("[Ktucm] buf-size ({}) < {}", buf.size(), sz));
         }
 
-        return isLittle ? decode_ktcum0<true>(buf)
-                        : decode_ktcum0<false>(buf);
+        return isLittle ? decode_ktucm0<true>(buf)
+                        : decode_ktucm0<false>(buf);
     }
 
 #pragma pack(push, 1)
@@ -210,9 +213,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktucf> decode_ktucf(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktucf)) { // sizeof(Ktucf) == 16
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktucf> decode_ktucf(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktucf); buf.size() < sz) {
+            return err_of(fmt::format("[Ktucf] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktucf0<true>(buf)
@@ -269,10 +272,11 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktubl> decode_ktubl(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktubl)) { // sizeof(Ktubl) == 22
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktubl> decode_ktubl(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktubl); buf.size() < sz) {
+            return err_of(fmt::format("[Ktubl] buf-size ({}) < {}", buf.size(), sz));
         }
+
         return isLittle ? decode_ktubl0<true>(buf)
                         : decode_ktubl0<false>(buf);
     }
@@ -316,9 +320,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktubu> decode_ktubu(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktubu)) { // sizeof(Ktubu) == 24
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktubu> decode_ktubu(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktubu); buf.size() < sz) {
+            return err_of(fmt::format("[Ktubu] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktubu0<true>(buf)
@@ -364,9 +368,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktust> decode_ktust(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktust)) { // sizeof(Ktust) == 24
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktust> decode_ktust(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktust); buf.size() < sz) {
+            return err_of(fmt::format("[Ktust] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktust0<true>(buf)
@@ -413,9 +417,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktudx> decode_ktudx(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktudx)) { // sizeof(ktudx) == 24
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktudx> decode_ktudx(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktudx); buf.size() < sz) {
+            return err_of(fmt::format("[Ktudx] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktudx0<true>(buf)
@@ -464,9 +468,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Kturb> decode_kturb(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Kturb)) { // sizeof(Kturb) == 28 (pack 1 기준 28 bytes)
-            return std::nullopt;
+    [[nodiscard]] inline Result<Kturb> decode_kturb(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Kturb); buf.size() < sz) {
+            return err_of(fmt::format("[Kturb] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_kturb0<true>(buf)
@@ -545,9 +549,9 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline std::optional<Ktusp> decode_ktusp(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktusp)) { // sizeof(Ktusp) == 28
-            return std::nullopt;
+    [[nodiscard]] inline Result<Ktusp> decode_ktusp(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktusp); buf.size() < sz) {
+            return err_of(fmt::format("[Ktusp] buf-size ({}) < {}", buf.size(), sz));
         }
 
         return isLittle ? decode_ktusp0<true>(buf)
