@@ -39,8 +39,8 @@ namespace ora {
         const RecordBound& bound,
         const BlockCtx& ctx ) {
 
-        auto end_block = rba.block_no + bound.next_blocks;
-        auto end_offset = bound.next_offset;
+        const auto end_block = rba.block_no + bound.next_blocks;
+        const auto end_offset = bound.next_offset;
         auto header = RecordHead_of(bytes.asVector(), ctx.isLittle);
 
         return Record{

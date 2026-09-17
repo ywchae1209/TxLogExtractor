@@ -12,17 +12,60 @@ namespace ora {
     using coral::decode_at, coral::Result, coral::err_of;
     using std::optional;
 
+    namespace FBFlag {
+        constexpr uint8_t FB_N{0x01};   // 1 << 0
+        constexpr uint8_t FB_P{0x02};   // 1 << 1
+        constexpr uint8_t FB_L{0x04};   // 1 << 2
+        constexpr uint8_t FB_F{0x08};   // 1 << 3
+        constexpr uint8_t FB_D{0x10};   // 1 << 4
+        constexpr uint8_t FB_H{0x20};   // 1 << 5
+        constexpr uint8_t FB_C{0x40};   // 1 << 6
+        constexpr uint8_t FB_K{0x80};   // 1 << 7
+    }
+
+    static std::string processFbFlags(uint8_t fb) {
+
+        char s[9]{};
+
+        s[7] = (fb & FBFlag::FB_N) ? 'N' : '-';  // The last column continues in the Next piece
+        s[6] = (fb & FBFlag::FB_P) ? 'P' : '-';  // The first column continues from the Previous piece
+        s[5] = (fb & FBFlag::FB_L) ? 'L' : '-';  // Last ctx piece
+        s[4] = (fb & FBFlag::FB_F) ? 'F' : '-';  // First ctx piece
+        s[3] = (fb & FBFlag::FB_D) ? 'D' : '-';  // Deleted row
+        s[2] = (fb & FBFlag::FB_H) ? 'H' : '-';  // Head piece of row
+        s[1] = (fb & FBFlag::FB_C) ? 'C' : '-';  // Clustered table member
+        s[0] = (fb & FBFlag::FB_K) ? 'K' : '-';  // Cluster Key
+
+        s[8] = '\0';
+
+        return std::string(s);
+    }
+
+    //--------------------------------------------------------------------------------
     enum class KdoType : uint8_t {
-        Irp,    // Single Insert (0x02, 0x23)
-        Drp,    // Single Delete (0x03, 0x22)
-        Lkr,    // Lock Row (0x04, 0x24)
-        Urp,    // Single Update (0x05, 0x25)
-        Orp,    // Overwrite Row (0x06, 0x26)
-        Mfc,    // Manipulate First Column (0x07, 0x27)
-        Cfa,    // Change Forwarding Address (0x08, 0x28)
-        Qmi,    // Quick Multi-Insert (0x0B, 0x2B)
-        Qmd,    // Quick Multi-Delete (0x0C, 0x2C)
-        Lmn,    // Logminer (0x10, 0x30)
+        Iur,    // (0x01) ----  Interpret Undo Redo
+
+        Irp,    // (0x02, 0x23) Single Insert
+        Drp,    // (0x03, 0x22) Single Delete
+        Lkr,    // (0x04, 0x24) Lock Row
+        Urp,    // (0x05, 0x25) Single Update
+        Orp,    // (0x06, 0x26) Overwrite Row
+        Mfc,    // (0x07, 0x27) Manipulate First Column
+        Cfa,    // (0x08, 0x28) Change Forwarding Address
+        Cki,    // (0x09) todo :: Change Cluster key Index
+        Skl,    // (0x0A) todo :: Set Key Links
+        Qmi,    // (0x0B, 0x2B) Quick Multi-Insert
+        Qmd,    // (0x0C, 0x2C) Quick Multi-Delete
+        Dsc,    // (0x0e) todo ::
+        Lmn,    // (0x10, 0x30) Logminer
+        LLB,    // (0x11) todo ::
+        o19,    // (0x13) todo ::
+        Shk,    // (0x14) todo ::
+        o21,    // (0x15) todo ::
+        Cmp,    // (0x16) todo ::       // <<< -------------------
+        Dcu,    // (0x17) todo ::
+        Mrk,    // (0x18) todo ::
+        OP_ROWDEPENDENCIES,
         Unknown
     };
 
@@ -77,6 +120,7 @@ namespace ora {
         };
     }
 
+    /// 16 byte
     [[nodiscard]] inline Result<KdoHead> decode_kdo_head(tcb::span<const char> buf, bool isLittle) {
         if (auto sz = sizeof(KdoHead); buf.size() < sz) {
             return err_of(fmt::format("[KdoHead] buf-size ({}) < {}", buf.size(), sz));
@@ -110,7 +154,7 @@ namespace ora {
 
         uint32_t unknown3;    // (4 bytes, offset 20)
 
-        uint16_t size;        // (2 bytes, offset 24) Size
+        uint16_t size;        // (2 bytes, offset 24) sizeDelta
         uint16_t slot;        // (2 bytes, offset 26) Slot
         uint8_t  unknown4;    // (1 byte, offset 28)
         uint8_t  unknown5;    // (1 byte, offset 29)
@@ -131,14 +175,14 @@ namespace ora {
             .hdba      = decode_at<uint32_t, IsLittle>(buf, 4),
             .unknown1  = decode_at<uint16_t, IsLittle>(buf, 8),
             .hslot     = decode_at<uint16_t, IsLittle>(buf, 10),
-            .ndba      = decode_at<uint32_t, IsLittle>(buf, 12),
-            .unknown2  = decode_at<uint16_t, IsLittle>(buf, 16),
+            .ndba      = decode_at<uint32_t, IsLittle>(buf, 12),        // todo :: fl & FB_L(4) == 0
+            .unknown2  = decode_at<uint16_t, IsLittle>(buf, 16),        // todo ::
             .nslot     = decode_at<uint16_t, IsLittle>(buf, 18),
             .unknown3  = decode_at<uint32_t, IsLittle>(buf, 20),
-            .size      = decode_at<uint16_t, IsLittle>(buf, 24),
+            .size      = decode_at<uint16_t, IsLittle>(buf, 24),        //sizeDelta
             .slot      = decode_at<uint16_t, IsLittle>(buf, 26),
             .unknown4  = decode_at<uint8_t,  IsLittle>(buf, 28),
-            .unknown5  = decode_at<uint8_t,  IsLittle>(buf, 29),
+            .unknown5  = decode_at<uint8_t,  IsLittle>(buf, 29),        // nullsDelta
             .unknown6  = decode_at<uint16_t, IsLittle>(buf, 30),
             .unknown7  = decode_at<uint32_t, IsLittle>(buf, 32)
         };
@@ -393,15 +437,15 @@ namespace ora {
      * - Opcode: 0x0B, 0x2B, 0x0C, 0x2C
      * - Quick Multi Insert/Delete :: KdoQmi == KdoHead + KdoQmiBody
      */
-    struct KdoQmiBody {
+    struct KdoQmBody {
         uint16_t unknown;            // (2 bytes, offset 0) Reserved
         uint16_t nrow;               // (2 bytes, offset 2) Number of rows
         std::vector<uint16_t> slots; // (2 bytes * nrow, offset 4~) Slots
     };
 
     template <bool IsLittle>
-    inline KdoQmiBody decode_kdo_qmi_body0(tcb::span<const char> buf, uint16_t nrow) {
-        KdoQmiBody res;
+    inline KdoQmBody decode_kdo_qm_body0(tcb::span<const char> buf, uint16_t nrow) {
+        KdoQmBody res;
 
         res.unknown = decode_at<uint16_t, IsLittle>(buf, 0);
         res.nrow    = nrow;
@@ -417,7 +461,7 @@ namespace ora {
         return res;
     }
 
-    [[nodiscard]] inline Result<KdoQmiBody> decode_kdo_qmi_body(tcb::span<const char> buf, bool isLittle) {
+    [[nodiscard]] inline Result<KdoQmBody> decode_kdo_qm_body(tcb::span<const char> buf, bool isLittle) {
 
         if (buf.size() < 4) return err_of(fmt::format("[KdoQmiBody] buf0-size ({}) < 4", buf.size()));
 
@@ -428,8 +472,8 @@ namespace ora {
         const auto need = 4 + sizeof(uint16_t) * nRow;
         if (buf.size() < need) return err_of(fmt::format("[KdoQmiBody] buf-size ({}) < {}", buf.size(), need));
 
-        return isLittle ? decode_kdo_qmi_body0<true>(buf, nRow)
-                        : decode_kdo_qmi_body0<false>(buf, nRow);
+        return isLittle ? decode_kdo_qm_body0<true>(buf, nRow)
+                        : decode_kdo_qm_body0<false>(buf, nRow);
     }
 
     // ----------------------------------------------------------------------------------------------------
@@ -455,73 +499,130 @@ namespace ora {
         KdoOrpBody,         // 0x06, 0x26 (Overwrite Row)
         KdoMfcBody,         // 0x07, 0x27 (Manipulate First Column)
         KdoCfaBody,         // 0x08, 0x28 (Change Forwarding Address)
-        KdoQmiBody,         // 0x0B, 0x2B, 0x0C, 0x2C (QMI, QMD)
+        KdoQmBody,         // 0x0B, 0x2B, 0x0C, 0x2C (QMI, QMD)
         KdoLwnBody,         // 0x10, 0x30 (Logminer)
         KdoRawBody          // fallback
-    >;
+     >;
 
+    using std::holds_alternative;
+    inline constexpr bool is_irp(const KdoBody& b) noexcept { return holds_alternative<KdoIrpBody>(b); }
+    inline constexpr bool is_drp(const KdoBody& b) noexcept { return holds_alternative<KdoDrpBody>(b); }
+    inline constexpr bool is_lkr(const KdoBody& b) noexcept { return holds_alternative<KdoLkrBody>(b); }
+    inline constexpr bool is_urp(const KdoBody& b) noexcept { return holds_alternative<KdoUrpBody>(b); }
+    inline constexpr bool is_orp(const KdoBody& b) noexcept { return holds_alternative<KdoOrpBody>(b); }
+    inline constexpr bool is_mfc(const KdoBody& b) noexcept { return holds_alternative<KdoMfcBody>(b); }
+    inline constexpr bool is_cfa(const KdoBody& b) noexcept { return holds_alternative<KdoCfaBody>(b); }
+    inline constexpr bool is_qm(const KdoBody& b) noexcept { return holds_alternative<KdoQmBody>(b); }
+    inline constexpr bool is_lwn(const KdoBody& b) noexcept { return holds_alternative<KdoLwnBody>(b); }
+    inline constexpr bool is_raw(const KdoBody& b) noexcept { return holds_alternative<KdoRawBody>(b); }
+
+    [[nodiscard]]inline uint8_t get_cc(const KdoBody& body) noexcept {
+
+        return std::visit(
+                [](const auto &b) -> uint8_t {
+                    using T = std::decay_t<decltype(b)>;
+
+                    if constexpr (std::is_same_v<T, KdoIrpBody>) { return b.cc; }
+                    if constexpr (std::is_same_v<T, KdoOrpBody>) { return b.cc; }
+
+                    assert(false && "expects KdoIrpBody, KdoOrpBody");
+                    return 0;
+                },
+                body);
+    }
+    [[nodiscard]] inline uint8_t get_nnew(const KdoBody& body) noexcept {
+
+        return std::visit(
+                [](const auto &b) -> uint8_t {
+                    using T = std::decay_t<decltype(b)>;
+                    if constexpr (std::is_same_v<T, KdoUrpBody>)
+                        return b.nnew;
+
+                    assert(false && "expects KdoUrpBody");
+                    return 0;
+                },
+                body);
+    }
+    [[nodiscard]] inline uint8_t get_nrow(const KdoBody& body) noexcept {
+
+        return std::visit( [](const auto &b) -> uint8_t {
+                    using T = std::decay_t<decltype(b)>;
+                    if constexpr (std::is_same_v<T, KdoQmBody>)
+                        return b.nrow;
+
+                    assert(false && "expects KdoQmiBody");
+                    return 0;
+                },
+                body);
+    }
     // ----------------------------------------------------------------------------------------------------
     struct KdoVector {
         KdoHead head;
         KdoBody body;
     };
 
+    [[nodiscard]] inline constexpr bool is_mfc(const KdoVector& kdo) noexcept { return is_mfc(kdo.body); }
+    [[nodiscard]] inline constexpr bool is_irp(const KdoVector& kdo) noexcept { return is_irp(kdo.body); }
+    [[nodiscard]] inline constexpr bool is_drp(const KdoVector& kdo) noexcept { return is_drp(kdo.body); }
+    [[nodiscard]] inline constexpr bool is_urp(const KdoVector& kdo) noexcept { return is_urp(kdo.body); }
+    [[nodiscard]] inline constexpr bool is_orp(const KdoVector& kdo) noexcept { return is_orp(kdo.body); }
+    [[nodiscard]] inline constexpr bool is_lkr(const KdoVector& kdo) noexcept { return is_lkr(kdo.body); }
+
     [[nodiscard]] inline Result<KdoVector> decode_kdo(tcb::span<const char> buf, bool isLittle) {
 
         auto head_opt = decode_kdo_head(buf, isLittle);
         if (!head_opt) return tl::make_unexpected( head_opt.error() );
 
-        KdoVector result;
-        result.head = *head_opt;
+        KdoVector result { .head = *head_opt };
 
-        auto body_buf = buf.subspan(sizeof(KdoHead));
+        auto rest = buf.subspan(sizeof(KdoHead));
 
         switch (result.head.get_type()) {
             case KdoType::Irp: // Single Insert (Redo: 0x02, Undo: 0x23)
             {
-                auto body = decode_kdo_irp_body(body_buf, isLittle);
+                auto body = decode_kdo_irp_body(rest, isLittle);
                 if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Drp: // Single Delete (Redo: 0x03, Undo: 0x22)
             {
-                auto body = decode_kdo_drp_body(body_buf, isLittle);
+                auto body = decode_kdo_drp_body(rest, isLittle);
                 if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Lkr: // Lock Row (Redo: 0x04, Undo: 0x24)
             {
-                auto body = decode_kdo_lkr_body(body_buf, isLittle);
+                auto body = decode_kdo_lkr_body(rest, isLittle);
                 if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Urp: // Single Update (Redo: 0x05, Undo: 0x25)
             {
-                auto body = decode_kdo_urp_body(body_buf, isLittle);
+                auto body = decode_kdo_urp_body(rest, isLittle);
                 if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Orp: // Overwrite Row (Redo: 0x06, Undo: 0x26)
             {
-                auto body = decode_kdo_orp_body(body_buf, isLittle);
+                auto body = decode_kdo_orp_body(rest, isLittle);
                 if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Mfc: // Manipulate First Column (Redo: 0x07, Undo: 0x27)
             {
-                auto body = decode_kdo_mfc_body(body_buf, isLittle);
+                auto body = decode_kdo_mfc_body(rest, isLittle);
                 if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Cfa: // Change Forwarding Address (Redo: 0x08, Undo: 0x28)
             {
-                auto body = decode_kdo_cfa_body(body_buf, isLittle);
+                auto body = decode_kdo_cfa_body(rest, isLittle);
                 if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
@@ -529,77 +630,24 @@ namespace ora {
             case KdoType::Qmi: // Quick Multi-Insert (Redo: 0x0B, Undo: 0x2B)
             case KdoType::Qmd: // Quick Multi-Delete (Redo: 0x0C, Undo: 0x2C)
             {
-                auto body = decode_kdo_qmi_body(body_buf, isLittle);
+                auto body = decode_kdo_qm_body(rest, isLittle);
                 if (!body) return tl::make_unexpected(body.error());
                 result.body = *body;
                 break;
             }
             case KdoType::Lmn: // Logminer (Redo: 0x10, Undo: 0x30)
             {
-                result.body = KdoLwnBody{ body_buf };
+                result.body = KdoLwnBody{ rest };
                 break;
             }
             // fallback
             default:
             {
-                result.body = KdoRawBody{ body_buf };
+                result.body = KdoRawBody{ rest };
                 break;
             }
         }
         return result;
     }
-
-    /*
-    void process_kdo(const KdoVector& kdo) {
-        // 1. IRP (Single Insert) 타입인지 확인
-        if (std::holds_alternative<KdoIrpBody>(kdo.body)) {
-            const auto& irp = std::get<KdoIrpBody>(kdo.body);
-            // irp.hdba, irp.slot 등 자유롭게 사용
-            std::cout << "Insert Row Piece - Slot: " << irp.slot << "\n";
-        }
-        // 2. DRP (Single Delete) 타입인지 확인
-        else if (std::holds_alternative<KdoDrpBody>(kdo.body)) {
-            const auto& drp = std::get<KdoDrpBody>(kdo.body);
-            std::cout << "Delete Row Piece - Slot: " << drp.slot << "\n";
-        }
-        // 3. QMI (Multi Insert) 타입인지 확인
-        else if (std::holds_alternative<KdoQmiBody>(kdo.body)) {
-            const auto& qmi = std::get<KdoQmiBody>(kdo.body);
-            std::cout << "Quick Multi-Insert - Rows: " << qmi.nrow << "\n";
-            for (uint16_t slot : qmi.slots) {
-                // slots 순회
-            }
-        }
-        // 4. 처리되지 않은 Raw 버퍼인 경우
-        else if (std::holds_alternative<KdoRawBody>(kdo.body)) {
-            const auto& raw = std::get<KdoRawBody>(kdo.body);
-            std::cout << "Raw Body Size: " << raw.data.size() << "\n";
-        }
-    }
-
-    // std::visit + overloaded
-    template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-    template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
-    void process_kdo_with_visit(const KdoVector& kdo) {
-        std::visit(overloaded {
-            [](const KdoIrpBody& irp) {
-                std::cout << "[IRP] Inserted at slot: " << irp.slot << "\n";
-            },
-            [](const KdoDrpBody& drp) {
-                std::cout << "[DRP] Deleted slot: " << drp.slot << "\n";
-            },
-            [](const KdoQmiBody& qmi) {
-                std::cout << "[QMI] Multi-Insert row count: " << qmi.nrow << "\n";
-            },
-            [](const KdoUrpBody& urp) {
-                std::cout << "[URP] Updated slot: " << urp.slot << "\n";
-            },
-            [](const auto& rest) { // 나머지 타입들(LKR, CFA, Raw)을 한꺼번에 폴백 처리
-                std::cout << "[Other Payload]\n";
-            }
-        }, kdo.body);
-    }
-     */
 }
 

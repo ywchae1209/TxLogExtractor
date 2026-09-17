@@ -182,4 +182,41 @@ namespace ora {
                         : decode_ktdlr0<false>(buf);
     }
 
+    /// 24.1 # 1: DDL Identifier Header (24 Bytes)
+    // ----------------------------------------------------------------------------------------------------
+    struct KrvDDLh {
+        uint32_t ddl_version{0};  //
+        uint16_t xid_usn{0};      //
+        uint16_t xid_slot{0};     //
+        uint32_t xid_sqn{0};      //
+        uint16_t audit_action{0}; //
+        uint16_t flag{0};         // (0:Basic, 1:Chain, 4:Global-Temp-Tbl, 5:Priv-Temp-Tbl, 8:ObjMeta, 9:ColMeta, 10:ChgObj
+        uint16_t chain_seq{0};    // Offset 18
+        uint16_t total_chains{0}; // Offset 20
+
+        [[nodiscard]] constexpr bool is_basic_or_chain() const noexcept { return flag == 0 || flag == 1; }
+
+        // if basic-flag DLL size too large(>4000)
+        [[nodiscard]] constexpr bool is_chained() const noexcept { return flag == 1; }
+    };
+
+    [[nodiscard]] inline Result<KrvDDLh> decode_krvddlh(
+        const tcb::span<const char> buf,
+        const bool isLittle) {
+
+        if (buf.size() < 18) {
+            return err_of("[Ch24.1:Header] size < 18");
+        }
+
+        return KrvDDLh {
+            .ddl_version  = decode_At<uint32_t>(buf, isLittle, 0),
+            .xid_usn      = decode_At<uint16_t>(buf, isLittle, 4),
+            .xid_slot     = decode_At<uint16_t>(buf, isLittle, 6),
+            .xid_sqn      = decode_At<uint32_t>(buf, isLittle, 8),
+            .audit_action = decode_At<uint16_t>(buf, isLittle, 12),
+            .flag         = decode_At<uint16_t>(buf, isLittle, 16),
+            .chain_seq    = (buf.size() >= 20) ? decode_At<uint16_t>(buf, isLittle, 18) : static_cast<uint16_t>(0),
+            .total_chains = (buf.size() >= 22) ? decode_At<uint16_t>(buf, isLittle, 20) : static_cast<uint16_t>(0)
+        };
+    }
 }

@@ -3,6 +3,7 @@
 #include "tcb/span.hpp"
 #include "../coral_decode.h"
 #include "../coral_result.h"
+#include "layout_common.h"
 
 /** Direct Load Redo
  *
@@ -73,70 +74,17 @@ namespace ora {
      * KTBIT (Interested Transaction List Entry - 24 bytes)
      */
     struct Ktbit {
-        uint16_t xid_usn;         // (2 bytes, offset 0) Transaction ID undo segment number
-        uint16_t xid_slt;         // (2 bytes, offset 2) Transaction ID slot
-        uint32_t xid_sqn;         // (4 bytes, offset 4) Transaction ID sequence number
-        uint32_t uba_dba;         // (4 bytes, offset 8) Undo Block Address DBA
-        uint16_t uba_sqn;         // (2 bytes, offset 12) UBA sequence number
-        uint8_t  uba_rec;         // (1 byte, offset 14) UBA record number
+        Ktb_xid8  xid;
+        Ktb_uba7  uba;
         uint8_t  spare1;          // (1 byte, offset 15) spare1
+
         uint16_t flags;           // (2 bytes, offset 16) flags
-        uint16_t ktbitun;         // (2 bytes, offset 18) ktbitun
+        uint16_t ktbitun;         // (2 bytes, offset 18) ktbitun Interested Transaction Undo Num:: scn.wrap
         uint32_t base;            // (4 bytes, offset 20) base
     };
     static_assert(sizeof(Ktbit) == 24, "Ktbit size mismatch");
 #pragma pack(pop)
 
-    template<bool IsLittle>
-    inline Ktbit decode_ktbit0(tcb::span<const char> buf, size_t offset) {
-        return Ktbit{
-            .xid_usn = decode_at<uint16_t, IsLittle>(buf, offset + 0),
-            .xid_slt = decode_at<uint16_t, IsLittle>(buf, offset + 2),
-            .xid_sqn = decode_at<uint32_t, IsLittle>(buf, offset + 4),
-            .uba_dba = decode_at<uint32_t, IsLittle>(buf, offset + 8),
-            .uba_sqn = decode_at<uint16_t, IsLittle>(buf, offset + 12),
-            .uba_rec = decode_at<uint8_t,  IsLittle>(buf, offset + 14),
-            .spare1  = decode_at<uint8_t,  IsLittle>(buf, offset + 15),
-            .flags   = decode_at<uint16_t, IsLittle>(buf, offset + 16),
-            .ktbitun = decode_at<uint16_t, IsLittle>(buf, offset + 18),
-            .base    = decode_at<uint32_t, IsLittle>(buf, offset + 20)
-        };
-    }
-
-    [[nodiscard]] inline Result<Ktbit> decode_ktbit(tcb::span<const char> buf, bool isLittle, size_t offset) {
-        if (buf.size() < offset + sizeof(Ktbit)) {
-            return err_of(fmt::format("[Ktbit] buf-size ({}) < offset+required ({})",
-                                      buf.size(), offset + sizeof(Ktbit)));
-        }
-
-        return isLittle ? decode_ktbit0<true>(buf, offset)
-                        : decode_ktbit0<false>(buf, offset);
-    }
-
-    [[nodiscard]] inline Result<vector<Ktbit>> decode_ktbits(
-        tcb::span<const char> buf,
-        uint16_t itl_cnt, bool isLittle, size_t start_offset = 0)
-    {
-        const size_t total_size = sizeof(Ktbit) * itl_cnt;
-        if (buf.size() < start_offset + total_size) {
-            return err_of(fmt::format("[Ktbits] buf-size ({}) < total-required ({})",
-                                      buf.size(), start_offset + total_size));
-        }
-
-        vector<Ktbit> entries;
-        entries.reserve(itl_cnt);
-
-        for (uint16_t i = 0; i < itl_cnt; ++i) {
-            size_t current_offset = start_offset + (i * sizeof(Ktbit));
-            auto entry_res = decode_ktbit(buf, isLittle, current_offset);
-            if (!entry_res) {
-                return tl::make_unexpected(entry_res.error());
-            }
-            entries.push_back(*entry_res);
-        }
-
-        return entries;
-    }
 
 #pragma pack(push, 1)
     /** 19.1 #1
@@ -492,7 +440,7 @@ namespace ora {
     /** Oracle Data Block */
     struct OraBlock {
         Ktbbh               header;        // Block Transaction Header
-        vector<Ktbit>       itls;          // ITL List
+        vector<Ktb_ItlEntry>itls;          // ITL List
         Kdbh                data_header;   // Data Block Header
         optional<Kdc9iData> compress_info; // (선택) 9iR2 압축 정보
         vector<Ktdir>       table_dirs;    // Table Directory
@@ -510,7 +458,7 @@ namespace ora {
         offset += sizeof(Ktbbh);
 
         // 2. ITLs
-        const auto itls = decode_ktbits(buf, hd_tx->itl_cnt, isLittle, offset);
+        const auto itls = decode_ktb_itl(buf, hd_tx->itl_cnt, isLittle, offset);
         if (!itls) return tl::make_unexpected(itls.error());
         offset += sizeof(Ktbit) * hd_tx->itl_cnt;
 

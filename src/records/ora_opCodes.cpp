@@ -72,7 +72,7 @@ namespace ora {
         {5, 27, "KTUSMFMT", "Transaction Control System Managed us Format"},
         {5, 28, "KTUUNTP", "Undo Need To Propagate"},
         {5, 29, "KTUBDB", "Big undo"},
-        {5, 30, "KTURCDTS", "Change ondisk state for a distributed transaction"},
+        {5, 30, "KTURCDTS", "Change ondisk state for a distributed transaction(KTUDX)"},
         {5, 31, "KTUFATTRC", "Flashback Archive Txn Table Redo Callback"},
         {5, 32, "KTUFATTRS", "Flashback Archive Txn Table Redo Set"},
         {5, 33, "KTUCHNF", "Change notification commit marker"},

@@ -134,8 +134,6 @@ namespace ora {
     template <bool IsLittle>
     inline TDEKeyInfo decode_tde_key(tcb::span<const char> buf) noexcept {
 
-        TDEKeyInfo o{};
-
         // todo :: check -- Solaris(SPARC-based), HP-UX( PA-RISC, Itanium), AIX (POWER, PowerPC)
         // Big-Endian(AIX 등)인 경우 패딩 4바이트를 건너뛰고 오프셋 +4 지점에서 복사
         // Solaris(SPARC-based), HP-UX( PA-RISC, Itanium), AIX (POWER, PowerPC)

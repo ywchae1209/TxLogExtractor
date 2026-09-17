@@ -8,6 +8,7 @@
 
 #include <fmt/ostream.h>
 #include <tcb/span.hpp>
+#include "coral_result.h"
 
 namespace coral {
     template <size_t N>
@@ -50,6 +51,54 @@ namespace coral {
     }
 
     template <typename T>
+    inline T decode_At(tcb::span<const char> buf, bool isLittle, size_t offset) {
+        return isLittle
+                   ? decode_at<T, true>(buf, offset)
+                   : decode_at<T, false>(buf, offset);
+    }
+
+    template <typename T>
+    inline T decode_At0(tcb::span<const char> buf, bool isLittle) {
+        return isLittle
+                   ? decode_at<T, true>(buf, 0)
+                   : decode_at<T, false>(buf, 0);
+    }
+
+    template <typename T>
+    inline std::vector<T> decode_array(const tcb::span<const char> buf, bool isLittle, size_t count) {
+
+        std::vector<T> out;
+        out.reserve(count);
+
+        for (size_t i = 0; i < count; ++i) {
+            out.push_back(coral::decode_At<T>(buf, isLittle, i * sizeof(T)));
+        }
+        return out;
+    }
+
+    [[nodiscard]] inline std::vector<tcb::span<const char>> splits_by(
+            const tcb::span<const char> buf,
+            const tcb::span<const uint16_t> sizes) {
+
+        std::vector<tcb::span<const char>> splits;
+        splits.reserve(sizes.size());
+
+        size_t offset = 0;
+        const size_t total_buf_sz = buf.size();
+
+        for (const auto len : sizes) {
+            if (offset + len > total_buf_sz) {
+                break;
+            }
+            splits.push_back(buf.subspan(offset, len));
+            offset += len;
+        }
+
+        return splits;
+    }
+
+
+    template <typename T>
     inline T get_at(tcb::span<const char> s, size_t offset, bool isLittle) {
         return isLittle
                    ? coral::decode_at<T, true>(s, offset)
@@ -58,6 +107,15 @@ namespace coral {
 
     inline constexpr size_t align_up4(const size_t size) noexcept {
         return (size + 3) & ~static_cast<size_t>(3);
+    }
+
+    inline Result<void> enough(const tcb::span<const char> buf,
+                               const size_t required_size,
+                               const std::string_view prefix) {
+        if (buf.size() < required_size) {
+            return err_of(fmt::format("[{}] buf-size ({}) < required ({})", prefix, buf.size(), required_size));
+        }
+        return {};
     }
 
 }
