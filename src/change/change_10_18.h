@@ -9,8 +9,6 @@
 #include "../coral_combinator.h"
 #include "../coral_decode.h"
 
-/// {10, 18, "KDXLUP", "Index redo: update keydata(KDICLUP)"},
-
 namespace ora {
 
     using coral::decode_At, coral::Result, coral::err_of;
@@ -40,6 +38,7 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
+    /// {10, 18, "KDXLUP", "Index redo: update keydata(KDICLUP)"},
     struct Change_1018 {
         KtbVector ktb;
         optional<Kdxlup> hdr;

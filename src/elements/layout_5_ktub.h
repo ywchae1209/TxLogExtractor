@@ -61,12 +61,24 @@ namespace ora {
     };
 
     // ---
+    /// Ktubu | Ktubl
     struct Ktub {
         Ktub_base           header;
         optional<Ktubu_ext> ext0;             // 28 Bytes Extension
         optional<Ktubl_ext> ext1;             // 76 Bytes Full Extension
 
-        [[nodiscard]] bool is_begin_trans() const noexcept { return (header.flg & 0x0008) != 0; }
+        [[nodiscard]] bool is_begin_trans() const noexcept { return (header.flg & Ktub_Flag::BEGIN_TRANS) != 0; }
+
+        [[nodiscard]] bool is_mbu_head() const noexcept { return (header.flg & Ktub_Flag::MBU_HEAD) != 0; }
+        [[nodiscard]] bool is_mbu_tail() const noexcept { return (header.flg & Ktub_Flag::MBU_TAIL) != 0; }
+        [[nodiscard]] bool is_mbu_mid() const noexcept { return (header.flg & Ktub_Flag::MBU_MID) != 0; }
+        [[nodiscard]] bool is_regular() const noexcept { return !(is_mbu_head() && is_mbu_tail() && is_mbu_mid()); }
+
+        [[nodiscard]] bool is_lastSplit() const noexcept { return (header.flg & Ktub_Flag::LAST_SPLIT) != 0; }
+        [[nodiscard]] bool is_userUndoDone() const noexcept { return (header.flg & Ktub_Flag::USER_DONE) != 0; }
+        [[nodiscard]] bool is_tempObject() const noexcept { return (header.flg & Ktub_Flag::TEMP_OBJECT) != 0; }
+
+
         [[nodiscard]] bool has_bu_ext() const noexcept { return ext0.has_value(); }
         [[nodiscard]] bool has_bl_ext() const noexcept { return ext1.has_value(); }
     };
@@ -81,7 +93,7 @@ namespace ora {
             .objn  = decode_At<uint32_t>(buf, isLittle, 0),
             .objd  = decode_At<uint32_t>(buf, isLittle, 4),
             .tsn   = decode_At<uint32_t>(buf, isLittle, 8),
-            .undo  = decode_At<uint32_t>(buf, isLittle, 12),
+            .undo  = decode_At<uint32_t>(buf, isLittle, 12),    // previous DBA
             .opc   = static_cast<uint16_t>((decode_At<uint8_t>(buf, isLittle, 16) << 8) | decode_At<uint8_t>(buf, isLittle, 17)),
             .slt   = decode_At<uint8_t>(buf, isLittle, 18),
             .rci   = decode_At<uint8_t>(buf, isLittle, 19),

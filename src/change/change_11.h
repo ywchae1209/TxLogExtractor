@@ -11,7 +11,7 @@ namespace ora {
     typedef Ch_Irp Change_1102;
 
     [[nodiscard]] inline Result<Change_1102> parse_1102( SpanCursor &ctx) {
-        return as_change<Change_1102>(parse_kdo(ctx, "Ch11_2", ctx.isLittle));
+        return as_change<Change_1102>(parse_ktdo(ctx, "Ch11_2", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
@@ -19,7 +19,7 @@ namespace ora {
     typedef Ch_Drp Change_1103;
 
     [[nodiscard]] inline Result<Change_1103> parse_1103( SpanCursor &ctx) {
-        return as_change<Change_1103>(parse_kdo(ctx, "Ch11_3", ctx.isLittle));
+        return as_change<Change_1103>(parse_ktdo(ctx, "Ch11_3", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
@@ -27,34 +27,31 @@ namespace ora {
     typedef Ch_Lrk Change_1104;
 
     [[nodiscard]] inline Result<Change_1104> parse_1104( SpanCursor &ctx) {
-        return as_change<Change_1104>(parse_kdo(ctx, "Ch11_4", ctx.isLittle));
+        return as_change<Change_1104>(parse_ktdo(ctx, "Ch11_4", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
     /// {11, 5, "KDBNUM", "Table redo: update row piece"}, (0x0B05 == Opcode 11.5)
     typedef Ch_Urp Change_1105;
 
-    // --------------------------------------------------------------------------------
     [[nodiscard]] inline Result<Change_1105> parse_1105( SpanCursor &ctx) {
-        return as_change<Change_1105>(parse_kdo(ctx, "Ch11_5", ctx.isLittle));
+        return as_change<Change_1105>(parse_ktdo(ctx, "Ch11_5", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
     /// {11, 6, "KDBORP", "Table redo: overwrite row piece"}
     typedef Ch_Orp Change_1106;
 
-    // --------------------------------------------------------------------------------
     [[nodiscard]] inline Result<Change_1106> parse_1106( SpanCursor &ctx) {
-        return as_change<Change_1106>(parse_kdo(ctx, "Ch11_6", ctx.isLittle));
+        return as_change<Change_1106>(parse_ktdo(ctx, "Ch11_6", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
     /// {11, 7, "KDBMFC", "Table redo: manipulate first column"}, (0x0B07 == Opcode 11.7)
     typedef Ch_Mfc Change_1107;
 
-    // --------------------------------------------------------------------------------
     [[nodiscard]] inline Result<Change_1107> parse_1107(SpanCursor &ctx) {
-        return as_change<Change_1107>(parse_kdo(ctx, "Ch11_7", ctx.isLittle));
+        return as_change<Change_1107>(parse_ktdo(ctx, "Ch11_7", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
@@ -62,7 +59,7 @@ namespace ora {
     typedef Ch_Cfa Change_1108;
 
     [[nodiscard]] inline Result<Change_1108> parse_1108(SpanCursor &ctx) {
-        return as_change<Change_1108>(parse_kdo(ctx, "Ch11_8", ctx.isLittle));
+        return as_change<Change_1108>(parse_ktdo(ctx, "Ch11_8", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
@@ -70,7 +67,7 @@ namespace ora {
     typedef Ch_Qmi Change_1111;
 
     [[nodiscard]] inline Result<Change_1111> parse_1111(SpanCursor &ctx) {
-        return as_change<Change_1111>(parse_kdo(ctx, "Ch11_11", ctx.isLittle));
+        return as_change<Change_1111>(parse_ktdo(ctx, "Ch11_11", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
@@ -78,7 +75,7 @@ namespace ora {
     typedef Ch_Qmd Change_1112;
 
     [[nodiscard]] inline Result<Change_1112> parse_1112(SpanCursor &ctx) {
-        return as_change<Change_1112>(parse_kdo(ctx, "Ch11_12", ctx.isLittle));
+        return as_change<Change_1112>(parse_ktdo(ctx, "Ch11_12", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
@@ -86,7 +83,7 @@ namespace ora {
     typedef Ch_Lmn Change_1116;
 
     [[nodiscard]] inline Result<Change_1116> parse_1116(SpanCursor &ctx) {
-        return as_change<Change_1116>(parse_kdo(ctx, "Ch11_16", ctx.isLittle));
+        return as_change<Change_1116>(parse_ktdo(ctx, "Ch11_16", ctx.isLittle));
     }
 
     // --------------------------------------------------------------------------------
@@ -94,6 +91,6 @@ namespace ora {
     typedef Ch_Pdr Change_1122;
 
     [[nodiscard]] inline Result<Change_1122> parse_1122(SpanCursor &ctx) {
-        return as_change<Change_1122>(parse_kdo(ctx, "Ch11_22", ctx.isLittle));
+        return as_change<Change_1122>(parse_ktdo(ctx, "Ch11_22", ctx.isLittle));
     }
 }

@@ -34,7 +34,6 @@ namespace ora {
         if (!ucm) return tl::make_unexpected(ucm.error());
         out.ucm = std::move(*ucm);
 
-
         // [# 2] ucf
         if (ucm->has_ucf() && ctx.no_remaining()) return err_of("Ch5_4: ucf flag is set, but no remaining.");
 

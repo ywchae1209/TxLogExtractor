@@ -561,17 +561,17 @@ namespace ora {
     inline Ktusp decode_ktusp0(tcb::span<const char> buf) {
         return Ktusp{
             .op        = decode_at<uint8_t, IsLittle>(buf, 0),
-            .flag      = decode_at<uint8_t, IsLittle>(buf, 1),
-            .col_cnt   = decode_at<uint16_t, IsLittle>(buf, 2),
+            .flag      = decode_at<uint8_t, IsLittle>(buf, 1),      // fb
+            .col_cnt   = decode_at<uint16_t, IsLittle>(buf, 2),     // cc
             .obj_ver   = decode_at<uint16_t, IsLittle>(buf, 4),
-            .undo_col  = decode_at<uint16_t, IsLittle>(buf, 6),
-            .redo_col  = decode_at<uint16_t, IsLittle>(buf, 8),
+            .undo_col  = decode_at<uint16_t, IsLittle>(buf, 6),     // before
+            .redo_col  = decode_at<uint16_t, IsLittle>(buf, 8),     // after
             .unknown1  = decode_at<uint16_t, IsLittle>(buf, 10),
             .kdo_info1 = decode_at<uint16_t, IsLittle>(buf, 12),
             .unknown2  = decode_at<uint16_t, IsLittle>(buf, 14),
             .kdo_info2 = decode_at<uint32_t, IsLittle>(buf, 16),
-            .head_dba  = decode_at<uint32_t, IsLittle>(buf, 20),
-            .head_slot = decode_at<uint16_t, IsLittle>(buf, 24),
+            .head_dba  = decode_at<uint32_t, IsLittle>(buf, 20),    // bdba
+            .head_slot = decode_at<uint16_t, IsLittle>(buf, 24),    // slot
             .unknown3  = decode_at<uint16_t, IsLittle>(buf, 26)
         };
     }

@@ -1,20 +1,17 @@
 #pragma once
-#include <optional>
 #include "../coral_combinator.h"
 #include "../elements/layout_17.h"
-#include "tcb/span.hpp"
 
 namespace ora {
 
-    using coral::decode_at, coral::Result, coral::err_of;
-    using std::optional, std::nullopt;
+    using  coral::Result;
     using namespace combinator;
 
+    // --------------------------------------------------------------------------------
     /// {17, 15, "KCVOPHBR", "Heart-beat redo"}
     /// - just a marker. no Elements
     struct Change_1715 {};
 
-    // --------------------------------------------------------------------------------
     [[nodiscard]] inline Result<Change_1715> parse_1715( SpanCursor& ctx) {
         return Change_1715{};
     }
@@ -26,7 +23,6 @@ namespace ora {
         Ktrth rth; // # 1
     };
 
-    // --------------------------------------------------------------------------------
     [[nodiscard]] inline Result<Change_1727> parse_1727( SpanCursor &ctx) {
 
         // [# 1] rth

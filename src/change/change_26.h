@@ -32,7 +32,7 @@ namespace ora {
         out.ktb = *ktb;
 
         // [# 2] KdliHead
-        auto head = ctx.one<KdliHead>("Ch26_2:head", [&](auto s) { return decode_kdli_common(s, ctx.isLittle); });
+        auto head = ctx.one<KdliHead>("Ch26_2:head", [&](auto s) { return decode_kdli_head(s, ctx.isLittle); });
         if (!head) return tl::make_unexpected(head.error());
         out.head = *head;
 
@@ -72,7 +72,7 @@ namespace ora {
         out.objd = decode_At<uint32_t>(*span2, ctx.isLittle, 24);
 
         // [# 3] KdliHead
-        auto head = ctx.one<KdliHead>("Ch26_6:head", [&](auto s) { return decode_kdli_common(s, ctx.isLittle); });
+        auto head = ctx.one<KdliHead>("Ch26_6:head", [&](auto s) { return decode_kdli_head(s, ctx.isLittle); });
         if (!head) return tl::make_unexpected(head.error());
         out.head = *head;
 

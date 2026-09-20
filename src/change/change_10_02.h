@@ -83,7 +83,7 @@ namespace ora {
         if (!xle) return out;
         out.xle = *xle;
 
-        // [# 3, 4] copy
+        // [# 3, 4] raw ~ raw
         if (auto s = ctx.raw("Ch10_2:f3"); s) out.key_entry_data = std::move(*s); else return out;
         if (auto s = ctx.raw("Ch10_2:f4"); s) out.slot_data = std::move(*s); else return out;
 

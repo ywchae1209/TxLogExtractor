@@ -47,7 +47,7 @@ namespace ora {
         uint32_t dba{0};   // Data Block Address
     };
 
-    [[nodiscard]] inline Result<KdliHead> decode_kdli_common(tcb::span<const char> buf, bool isLittle) {
+    [[nodiscard]] inline Result<KdliHead> decode_kdli_head(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 12) {
             return err_of(fmt::format("[KdliCommon] buf size {} < 12", buf.size()));
         }

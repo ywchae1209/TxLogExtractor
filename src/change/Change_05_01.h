@@ -33,7 +33,8 @@ namespace ora {
         RawFlds rest;
     };
 
-    using Body5_1 = std::variant<std::monostate, //
+    /// Before Image & Supplemental Logging
+    using KtuBody = std::variant<std::monostate, //
                                  KdoUndo,        //
                                  KliUndo,        //
                                  OtherUndo >;
@@ -43,7 +44,7 @@ namespace ora {
         Ktudb udb;                   // # 1: KTU Undo Block Header (contain xid)
         Ktub  ub;                    // # 2: KTU Block Header
 
-        Body5_1 before{};
+        KtuBody before{};
 
         uint32_t objn() const { return ub.header.objn; }
         uint32_t objd() const { return ub.header.objd; }
@@ -76,14 +77,17 @@ namespace ora {
             // [# 3] Ktb ~ Kdo ~ ...  (0x0E08 Truncate 이외 파싱)
             case 0x0B01: {
                 KdoUndo undo{};
-                if (auto kdo = parse_kdo(ctx, "Ch5_1:kdo", ctx.isLittle)) undo.ktdo = std::move(*kdo);
-                if (auto sup = parse_sup(ctx, "Ch5_1:sup", ctx.isLittle)) undo.uspl = std::move(*sup);
+                if (auto kdo = parse_ktdo(ctx, "Ch5_1:ktdo", ctx.isLittle)) undo.ktdo = std::move(*kdo);
+                if (auto sup = parse_ksup(ctx, "Ch5_1:uspl", ctx.isLittle)) undo.uspl = std::move(*sup);
                 out.before = std::move(undo);
                 return out;
             }
                 // 26.1 --> KDLI Undo (LOB Undo) ::: todo
             case 0x1A01: {
                 KliUndo undo{};
+                // ktb
+                // kdliHead
+                // kdliElem
                 if (auto r = ctx.rest(""); r)
                     undo.rest = std::move(*r);
                 out.before = std::move(undo);
@@ -93,6 +97,7 @@ namespace ora {
                 // todo :::
             case 0x1A16: {
                 KliUndo undo{};
+
                 if (auto r = ctx.rest(""); r)
                     undo.rest = std::move(*r);
                 out.before = std::move(undo);
