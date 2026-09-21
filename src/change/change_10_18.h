@@ -61,7 +61,7 @@ namespace ora {
         out.hdr = *o_hdr;
 
         // [# 3] Key Data Payload (Update Delta)
-        if (auto raw = ctx.raw("Ch10_18:RawFld")) out.key_entry_data = std::move(*raw);
+        if (auto raw = ctx.one_raw("Ch10_18:RawFld")) out.key_entry_data = std::move(*raw);
 
         return out;
     }

@@ -27,7 +27,7 @@ namespace ora {
         Change_1901 out;
 
         // [# 1] OraBlock
-        auto o_block = ctx.one<OraBlock>("Ch19_1:OraBlock", [&](auto s) { return decode_ora_block(s, ctx.isLittle); });
+        auto o_block = ctx.one_of<OraBlock>("Ch19_1:OraBlock", decode_ora_block);
         if (!o_block) return tl::make_unexpected(o_block.error());
         out.oraBlock = std::move(*o_block);
 

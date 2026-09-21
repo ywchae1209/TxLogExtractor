@@ -111,7 +111,6 @@ namespace coral {
         }
     }
 
-
     // bytes
     inline std::string toHex(const uint8_t* data, const size_t len) {
         return fmt::format("{:02x}", fmt::join(data, data + len, ""));

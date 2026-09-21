@@ -27,18 +27,18 @@ namespace ora {
         Change_2602 out;
 
         // [# 1] Ktb
-        auto ktb = ctx.one<KtbVector>("Ch26_2:ktb", [&](auto s) { return decode_ktb(s, ctx.isLittle); });
+        auto ktb = ctx.one_of<KtbVector>("Ch26_2:ktb", decode_ktb);
         if (!ktb) return tl::make_unexpected(ktb.error());
         out.ktb = *ktb;
 
         // [# 2] KdliHead
-        auto head = ctx.one<KdliHead>("Ch26_2:head", [&](auto s) { return decode_kdli_head(s, ctx.isLittle); });
+        auto head = ctx.one_of<KdliHead>("Ch26_2:head", decode_kdli_head);
         if (!head) return tl::make_unexpected(head.error());
         out.head = *head;
 
         // [# 3 ~ N] KdliElem
         while (ctx.has_remaining()) {
-            auto elm = ctx.one<KdliElem>("Ch26_2:elem", [&](auto s) { return decode_kdli(s, ctx.isLittle); });
+            auto elm = ctx.one_of<KdliElem>("Ch26_2:elem", decode_kdli);
             if (!elm) break;
 
             out.elems.push_back(std::move(*elm));
@@ -72,13 +72,13 @@ namespace ora {
         out.objd = decode_At<uint32_t>(*span2, ctx.isLittle, 24);
 
         // [# 3] KdliHead
-        auto head = ctx.one<KdliHead>("Ch26_6:head", [&](auto s) { return decode_kdli_head(s, ctx.isLittle); });
+        auto head = ctx.one_of<KdliHead>("Ch26_6:head", decode_kdli_head);
         if (!head) return tl::make_unexpected(head.error());
         out.head = *head;
 
         // [# 4 ~ N] KdliElem
         while (ctx.has_remaining()) {
-            auto elm = ctx.one<KdliElem>("Ch26_6:kdli", [&](auto s) { return decode_kdli(s, ctx.isLittle); });
+            auto elm = ctx.one_of<KdliElem>("Ch26_6:kdli", decode_kdli);
             if (!elm) break;
             out.elems.push_back(std::move(*elm));
         }

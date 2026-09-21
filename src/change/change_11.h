@@ -6,6 +6,24 @@ namespace ora {
     using coral::Result;
     using namespace combinator;
 
+    template <typename T>
+    [[nodiscard]] inline Result<T> as_change(Ch_ktdo&& change) {
+        if (auto* ptr = std::get_if<T>(&change)) {
+            return std::move(*ptr);
+        }
+        return tl::make_unexpected(err_of("Type Mismatch"));
+    }
+
+    template<typename T>
+    [[nodiscard]] inline Result<T> as_change(Result<Ch_ktdo> &&res) {
+        if (!res)
+            return tl::make_unexpected(res.error());
+        if (auto *ptr = std::get_if<T>(&*res)) {
+            return std::move(*ptr);
+        }
+        return tl::make_unexpected(err_of("Type Mismatch"));
+    }
+
     // --------------------------------------------------------------------------------
     /// {11, 2, "KDBIRH", "Table redo: insert row header"}, (0x0B02 == Opcode 11.2)
     typedef Ch_Irp Change_1102;

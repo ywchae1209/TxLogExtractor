@@ -16,6 +16,10 @@ namespace ora {
         return Change_1715{};
     }
 
+    inline std::string to_string(Change_1715 &c) {
+        return fmt::format("Change_1715");
+
+    }
     // --------------------------------------------------------------------------------
     /// {17, 27, "KTRTH", "Thread Enable Marker / Recover Thread"}, (0x111B == Opcode 17.27)
     /// - rth ::: Thread Enable Marker
@@ -26,10 +30,15 @@ namespace ora {
     [[nodiscard]] inline Result<Change_1727> parse_1727( SpanCursor &ctx) {
 
         // [# 1] rth
-        auto rth = ctx.one<Ktrth>("Ch17_27:rth", [&](auto s) { return decode_ktrth(s, ctx.isLittle); });
+        auto rth = ctx.one_of<Ktrth>("Ch17_27:rth", decode_ktrth);
         if (!rth) return tl::make_unexpected(rth.error());
 
         return Change_1727{ .rth = std::move(*rth) };
+    }
+
+    inline std::string to_string(Change_1727 &c) {
+        return fmt::format("Ch17_27: {}",to_string(c.rth));
+
     }
 
 }

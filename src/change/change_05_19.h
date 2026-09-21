@@ -17,7 +17,7 @@ namespace ora {
     using namespace combinator;
 
     // --------------------------------------------------------------------------------
-    enum class TxAttrKey : uint8_t {
+    enum class TxK : uint8_t {
         VERSION,
         AUDIT_SESSION_ID,
         SESSION_NUMBER,
@@ -56,62 +56,61 @@ namespace ora {
         SEQ_UPDATE_TRANSACTION
     };
 
-    using TxAttrKey::VERSION;
-    using TxAttrKey::AUDIT_SESSION_ID;
-    using TxAttrKey::SESSION_NUMBER;
-    using TxAttrKey::SERIAL_NUMBER;
-    using TxAttrKey::CURRENT_USER_NAME;
-    using TxAttrKey::LOGIN_USER_NAME;
-    using TxAttrKey::CLIENT_INFO;
-    using TxAttrKey::OS_USER_NAME;
-    using TxAttrKey::MACHINE_NAME;
-    using TxAttrKey::OS_TERMINAL;
-    using TxAttrKey::OS_PROCESS_ID;
-    using TxAttrKey::OS_PROGRAM_NAME;
-    using TxAttrKey::TRANSACTION_NAME;
-    using TxAttrKey::CLIENT_ID;
-    using TxAttrKey::GLOBAL_TRANSACTION_ID;
-    using TxAttrKey::STREAMS_TAG;
-
-    using TxAttrKey::DDL_TRANSACTION;
-    using TxAttrKey::SPACE_MANAGEMENT_TRANSACTION;
-    using TxAttrKey::RECURSIVE_TRANSACTION;
-    using TxAttrKey::LOGMINER_INTERNAL_TRANSACTION;
-    using TxAttrKey::DB_OPEN_IN_MIGRATE_MODE;
-    using TxAttrKey::LSBY_IGNORE;
-    using TxAttrKey::LOGMINER_NO_TX_CHUNKING;
-    using TxAttrKey::LOGMINER_STEALTH_TRANSACTION;
-    using TxAttrKey::LSBY_PRESERVE;
-    using TxAttrKey::LOGMINER_MARKER_TRANSACTION;
-    using TxAttrKey::TRANSACTION_IN_PRAGMAED_PLSQL;
-    using TxAttrKey::DISABLED_LOGICAL_REPLICATION_TRANSACTION;
-    using TxAttrKey::DATAPUMP_IMPORT_TRANSACTION;
-    using TxAttrKey::TRANSACTION_AUDIT_CV_FLAGS_UNDEFINED;
-    using TxAttrKey::FEDERATION_PDB_REPLAY;
-    using TxAttrKey::PDB_DDL_REPLAY;
-    using TxAttrKey::LOGMINER_SKIP_TRANSACTION;
-    using TxAttrKey::SEQ_UPDATE_TRANSACTION;
+    constexpr auto VERSION                                   = TxK::VERSION;
+    constexpr auto AUDIT_SESSION_ID                          = TxK::AUDIT_SESSION_ID;
+    constexpr auto SESSION_NUMBER                            = TxK::SESSION_NUMBER;
+    constexpr auto SERIAL_NUMBER                             = TxK::SERIAL_NUMBER;
+    constexpr auto CURRENT_USER_NAME                         = TxK::CURRENT_USER_NAME;
+    constexpr auto LOGIN_USER_NAME                           = TxK::LOGIN_USER_NAME;
+    constexpr auto CLIENT_INFO                               = TxK::CLIENT_INFO;
+    constexpr auto OS_USER_NAME                              = TxK::OS_USER_NAME;
+    constexpr auto MACHINE_NAME                              = TxK::MACHINE_NAME;
+    constexpr auto OS_TERMINAL                               = TxK::OS_TERMINAL;
+    constexpr auto OS_PROCESS_ID                             = TxK::OS_PROCESS_ID;
+    constexpr auto OS_PROGRAM_NAME                           = TxK::OS_PROGRAM_NAME;
+    constexpr auto TRANSACTION_NAME                          = TxK::TRANSACTION_NAME;
+    constexpr auto CLIENT_ID                                 = TxK::CLIENT_ID;
+    constexpr auto GLOBAL_TRANSACTION_ID                     = TxK::GLOBAL_TRANSACTION_ID;
+    constexpr auto STREAMS_TAG                               = TxK::STREAMS_TAG;
+    constexpr auto DDL_TRANSACTION                           = TxK::DDL_TRANSACTION;
+    constexpr auto SPACE_MANAGEMENT_TRANSACTION              = TxK::SPACE_MANAGEMENT_TRANSACTION;
+    constexpr auto RECURSIVE_TRANSACTION                     = TxK::RECURSIVE_TRANSACTION;
+    constexpr auto LOGMINER_INTERNAL_TRANSACTION             = TxK::LOGMINER_INTERNAL_TRANSACTION;
+    constexpr auto DB_OPEN_IN_MIGRATE_MODE                   = TxK::DB_OPEN_IN_MIGRATE_MODE;
+    constexpr auto LSBY_IGNORE                               = TxK::LSBY_IGNORE;
+    constexpr auto LOGMINER_NO_TX_CHUNKING                   = TxK::LOGMINER_NO_TX_CHUNKING;
+    constexpr auto LOGMINER_STEALTH_TRANSACTION              = TxK::LOGMINER_STEALTH_TRANSACTION;
+    constexpr auto LSBY_PRESERVE                             = TxK::LSBY_PRESERVE;
+    constexpr auto LOGMINER_MARKER_TRANSACTION               = TxK::LOGMINER_MARKER_TRANSACTION;
+    constexpr auto TRANSACTION_IN_PRAGMAED_PLSQL             = TxK::TRANSACTION_IN_PRAGMAED_PLSQL;
+    constexpr auto DISABLED_LOGICAL_REPLICATION_TRANSACTION  = TxK::DISABLED_LOGICAL_REPLICATION_TRANSACTION;
+    constexpr auto DATAPUMP_IMPORT_TRANSACTION               = TxK::DATAPUMP_IMPORT_TRANSACTION;
+    constexpr auto TRANSACTION_AUDIT_CV_FLAGS_UNDEFINED      = TxK::TRANSACTION_AUDIT_CV_FLAGS_UNDEFINED;
+    constexpr auto FEDERATION_PDB_REPLAY                     = TxK::FEDERATION_PDB_REPLAY;
+    constexpr auto PDB_DDL_REPLAY                            = TxK::PDB_DDL_REPLAY;
+    constexpr auto LOGMINER_SKIP_TRANSACTION                 = TxK::LOGMINER_SKIP_TRANSACTION;
+    constexpr auto SEQ_UPDATE_TRANSACTION                    = TxK::SEQ_UPDATE_TRANSACTION;
 
     // --------------------------------------------------------------------------------
     /// {5, 19, "KTUTSL", "Transaction start audit log record"},
     struct Change_0519 {
-        std::unordered_map<TxAttrKey, std::string> attributes;
+        std::unordered_map<TxK, std::string> attributes;
 
-        void set(TxAttrKey key, std::string_view v) {
+        void set(TxK key, std::string_view v) {
             if (!v.empty()) attributes.insert_or_assign(key, std::string(v));
         }
 
-        void set_flag(TxAttrKey key, bool cond = true) {
+        void set_flag(TxK key, bool cond = true) {
             if (cond) attributes.insert_or_assign(key, "true");
         }
 
-        optional<std::string_view> get(TxAttrKey key) const noexcept {
+        optional<std::string_view> get(TxK key) const noexcept {
             auto it = attributes.find(key);
             if (it != attributes.end()) return std::string_view(it->second);
             return nullopt;
         }
 
-        bool has_flag(TxAttrKey key) const noexcept {
+        bool has_flag(TxK key) const noexcept {
             auto it = attributes.find(key);
             return (it != attributes.end() && it->second == "true");
         }
@@ -208,7 +207,7 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-   constexpr std::string_view to_st_view(TxAttrKey key) noexcept {
+   constexpr std::string_view to_st_view(TxK key) noexcept {
         switch (key) {
             case VERSION:                                  return "version";
             case AUDIT_SESSION_ID:                         return "audit session id";
@@ -250,7 +249,7 @@ namespace ora {
         return "unknown";
     }
 
-    inline std::string to_string(const Change_0519& ch519, bool multiline = false) {
+    inline std::string to_string(const Change_0519& ch519, bool multiline = true) {
 
         std::string out;
         out.reserve(256);

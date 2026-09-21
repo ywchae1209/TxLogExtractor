@@ -45,5 +45,4 @@ namespace ora {
 
         return o;
     }
-
 }

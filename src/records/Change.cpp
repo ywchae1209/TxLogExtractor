@@ -137,7 +137,8 @@ namespace ora {
 
             out.push_back(Change{
                 .change_head    = std::move(ch),
-                .length_vector  = std::move(lv)
+                .length_vector  = std::move(lv),
+                .isLittle       = isLittle
             });
 
             view = s2;

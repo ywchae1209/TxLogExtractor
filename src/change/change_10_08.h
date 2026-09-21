@@ -113,10 +113,10 @@ namespace ora {
         }
 
         // [# 3] Row Index / Slot Data
-        if (auto s = ctx.raw("Ch10_8:f3"); s) { out.slot_data = std::move(*s); }
+        if (auto s = ctx.one_raw("Ch10_8:f3"); s) { out.slot_data = std::move(*s); }
 
         // [# 4] Key Entry Payload Data
-        if (auto s = ctx.raw("Ch10_8:f4"); s) { out.key_entry_data = std::move(*s); }
+        if (auto s = ctx.one_raw("Ch10_8:f4"); s) { out.key_entry_data = std::move(*s); }
 
         // [-] from #3
         if (out.slot_data) { out.row_slots = out.slot_data->as_array(ctx.isLittle); }

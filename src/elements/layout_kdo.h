@@ -77,7 +77,7 @@ namespace ora {
     constexpr uint8_t OP_ROWDEPENDENCIES{0x40};
     constexpr bool is_rowDependencies(uint8_t op) { return (op & OP_ROWDEPENDENCIES) != 0; }
 
-    constexpr KdoType get_kdoType(uint8_t op_code) {
+    KdoType get_kdoType(uint8_t op_code) {
         switch (op_code & 0x1F) {    // op_code & 0x1F or & 0x3F
             case KdoType::Iur: return KdoType::Iur; // todo :: check 0x21
             case KdoType::Irp: return KdoType::Irp; // Single Insert (Redo: 0x02, Undo: 0x23)
@@ -386,6 +386,7 @@ namespace ora {
         uint8_t tabn;      //
 
         std::vector<bool> nulls;
+        std::string fb_string() const { return FB_string(fb); }
     };
 
     [[nodiscard]] inline Result<KdoOrpBody> decode_kdo_orp_body(tcb::span<const char> buf, bool isLittle) {

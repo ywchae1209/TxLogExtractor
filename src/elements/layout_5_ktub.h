@@ -32,15 +32,15 @@ namespace ora {
 
     // --- 1. 24
     struct Ktub_base {
-        uint32_t objn; // Offset 0 ~ 3   : Object ID
-        uint32_t objd; // Offset 4 ~ 7   : Data Object ID
-        uint32_t tsn;  // Offset 8 ~ 11  : Tablespace ID
-        uint32_t undo; // Offset 12 ~ 15 : Undo Data Block Address / Prev DBA
-        uint16_t opc;  // Offset 16 ~ 17 : Opcode (Op1 << 8 | Op2)
-        uint8_t slt;   // Offset 18      : Slot Number
-        uint8_t rci;   // Offset 19      : Rollback Change Index
-        uint16_t flg;  // Offset 20 ~ 21 : Flags
-        uint16_t wrp;  // Offset 22 ~ 23 : Wrap Sequence
+        uint32_t objn;     // Object ID
+        uint32_t objd;     // Data Object ID
+        uint32_t tsn;      // Tablespace ID
+        uint32_t prev_dba; // undo-dba or Prev DBA(when over19c)
+        uint16_t opc;      // Opcode (Op1 << 8 | Op2)
+        uint8_t slt;       // Slot Number
+        uint8_t rci;       // Rollback Change Index
+        uint16_t flg;      // Flags         -- read when over19c in OLR
+        uint16_t wrp;      // Wrap Sequence -- read when over19c in OLR
     };
 
     // --- 2. ~ 28
@@ -93,7 +93,7 @@ namespace ora {
             .objn  = decode_At<uint32_t>(buf, isLittle, 0),
             .objd  = decode_At<uint32_t>(buf, isLittle, 4),
             .tsn   = decode_At<uint32_t>(buf, isLittle, 8),
-            .undo  = decode_At<uint32_t>(buf, isLittle, 12),    // previous DBA
+            .prev_dba  = decode_At<uint32_t>(buf, isLittle, 12),    // previous DBA
             .opc   = static_cast<uint16_t>((decode_At<uint8_t>(buf, isLittle, 16) << 8) | decode_At<uint8_t>(buf, isLittle, 17)),
             .slt   = decode_At<uint8_t>(buf, isLittle, 18),
             .rci   = decode_At<uint8_t>(buf, isLittle, 19),
@@ -142,11 +142,11 @@ namespace ora {
         // 1. --------------------------------------------
         fmt::format_to(std::back_inserter(out),
             "[{}] objn: {} objd: {} tsn: {} undo(prev_dba): 0x{:08x} opc: {}.{} slt: {} rci: {} flg: 0x{:04x} wrp: {}\n",
-            ktub.has_bl_ext ? "KTUBL" : "KTUBU",
+            ktub.has_bl_ext() ? "KTUBL" : "KTUBU",
             ktub.header.objn,
             ktub.header.objd,
             ktub.header.tsn,
-            ktub.header.undo,
+            ktub.header.prev_dba,
             ktub.header.opc >> 8,
             ktub.header.opc & 0xFF,
             ktub.header.slt,
@@ -194,9 +194,4 @@ namespace ora {
         }
         return out;
     }
-
-
-
-
-
 }

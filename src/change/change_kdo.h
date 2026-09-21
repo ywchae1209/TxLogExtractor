@@ -12,61 +12,24 @@ namespace ora {
     using coral::Result, coral::err_of;
     using namespace combinator;
 
-    struct Ch_sup {
-        Ktusp spl;
-        std::vector<uint16_t> col_ids;
-        std::vector<uint16_t> col_sizes;
-        RawFlds col_raws;
-    };
-
-    inline Result<Ch_sup> parse_ksup (SpanCursor &ctx, const std::string_view name, const bool isLittle) {
-
-        // [#1] Ktusp
-        auto usp = ctx.one<Ktusp>(name, [&](auto s) { return decode_ktusp(s, isLittle); });
-        if (!usp) return tl::make_unexpected(usp.error());
-
-        const auto col_cnt = usp->col_cnt;
-
-        // [#2] col-indices
-        auto col_ids = ctx.one_array<uint16_t>(name, col_cnt, isLittle);
-        if (!col_ids) return tl::make_unexpected(usp.error());
-
-        // [#3] col-sizes
-        auto col_sizes = ctx.one_array<uint16_t>(name, col_cnt, isLittle);
-        if (!col_sizes) return tl::make_unexpected(usp.error());
-
-        // [#4~ N] col-raws
-        auto col_raws = ctx.raws_by(name, *col_sizes);
-        if (!col_raws) return tl::make_unexpected(usp.error());
-
-        return Ch_sup{
-            .spl = std::move(*usp),
-            .col_ids = std::move(*col_ids),
-            .col_sizes = std::move(*col_sizes),
-            .col_raws = std::move(*col_raws)
-        };
-    }
-
     // ================================================================================
     struct Ch_hdr {
         KtbVector ktb; // # 1: Transaction Layer Redo
         KdoVector kdo; // # 2: KDO Head + variant-body
 
         bool is_kdom2() const noexcept { return kdo.head.is_kdom2(); }
-        bool is_rowDependencies() const noexcept {
-            return on_rowDependencies(kdo.head.op);
-        }
+        bool is_rowDependencies() const noexcept { return ora::is_rowDependencies(kdo.head.op); }
     };
 
-    [[nodiscard]] inline Result<Ch_hdr> parse_kdo_hdr(SpanCursor &ctx,
+    [[nodiscard]] inline Result<Ch_hdr> parse_ktdo_hdr(SpanCursor &ctx,
                                                    const std::string_view name1,
                                                    const std::string_view name2, const bool isLittle) {
         // [# 1] ktb
-        auto ktb = ctx.one<KtbVector>(name1, [&](auto s) { return decode_ktb(s, isLittle); });
+        auto ktb = ctx.one_of<KtbVector>(name1, decode_ktb);
         if (!ktb) return tl::make_unexpected(ktb.error());
 
         // [# 2] Kdo
-        auto kdo = ctx.one<KdoVector>(name2, [&](auto s) { return decode_kdo(s, isLittle); });
+        auto kdo = ctx.one_of<KdoVector>(name2, decode_kdo);
         if (!kdo) return tl::make_unexpected(kdo.error());
 
         return Ch_hdr {
@@ -76,63 +39,48 @@ namespace ora {
     }
 
     // ================================================================================
-    struct Ch_Drp : Ch_hdr {
-        using Ch_hdr::Ch_hdr;
-        // todo :: if OP_ROWDEPENDENCIES{0x40}
-        explicit Ch_Drp(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {}
-    };
-    struct Ch_Lrk : Ch_hdr {
-        using Ch_hdr::Ch_hdr;
-        explicit Ch_Lrk(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {}
-    };
-    struct Ch_Mfc : Ch_hdr {
-        using Ch_hdr::Ch_hdr;
-        explicit Ch_Mfc(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {}
-    };
-    struct Ch_Cfa : Ch_hdr {
-        using Ch_hdr::Ch_hdr;
-        explicit Ch_Cfa(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {}
-    };
-    struct Ch_Qmd : Ch_hdr {
-        using Ch_hdr::Ch_hdr;
-        explicit Ch_Qmd(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {}
-    };
+    struct Ch_Lrk : Ch_hdr { using Ch_hdr::Ch_hdr; explicit Ch_Lrk(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {} };
+    struct Ch_Mfc : Ch_hdr { using Ch_hdr::Ch_hdr; explicit Ch_Mfc(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {} };
+    struct Ch_Cfa : Ch_hdr { using Ch_hdr::Ch_hdr; explicit Ch_Cfa(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {} };
+    struct Ch_Qmd : Ch_hdr { using Ch_hdr::Ch_hdr; explicit Ch_Qmd(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {} };
+
     /// KdoPurge/DrpBody --- todo
-    struct Ch_Pdr : Ch_hdr {
-        using Ch_hdr::Ch_hdr;
-        explicit Ch_Pdr(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {}
-    };
+    struct Ch_Pdr : Ch_hdr { using Ch_hdr::Ch_hdr; explicit Ch_Pdr(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {} };
 
     /// Lmn
-    struct Ch_Lmn : Ch_hdr {
+    struct Ch_Lmn : Ch_hdr { using Ch_hdr::Ch_hdr; explicit Ch_Lmn(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {} };
+
+    struct Ch_Drp : Ch_hdr {
         using Ch_hdr::Ch_hdr;
-        explicit Ch_Lmn(Ch_hdr &&h) noexcept : Ch_hdr(std::move(h)) {}
+        std::optional<uint64_t> dscn; // row-dependency scn
+        explicit Ch_Drp(Ch_hdr &&h, std::optional<uint64_t>d) noexcept
+        : Ch_hdr(std::move(h)), dscn{d} {}
     };
+
     struct Ch_Irp : Ch_hdr {
         RawFlds col_raws;
-        // todo :: if OP_ROWDEPENDENCIES{0x40} --> dscn
-        explicit Ch_Irp(Ch_hdr &&h, RawFlds &&payloads) noexcept :
-            Ch_hdr(std::move(h)), col_raws(std::move(payloads)) {}
+        std::optional<uint64_t> dscn;  // row-dependency scn
+        explicit Ch_Irp(Ch_hdr &&h, RawFlds &&payloads, std::optional<uint64_t>d) noexcept
+            : Ch_hdr(std::move(h)), col_raws(std::move(payloads)), dscn{d} {}
     };
     struct Ch_Urp : Ch_hdr {
-        // todo :: ifFLAGS_KDO_KDOM2{0x80}  --> dump col-vector
-        std::vector<uint16_t> change_col_indices;
         RawFlds col_raws;
-        // todo :: if OP_ROWDEPENDENCIES{0x40} --> dscn
-        explicit Ch_Urp(Ch_hdr &&h, std::vector<uint16_t> &&idx, RawFlds &&payloads) noexcept :
-            Ch_hdr(std::move(h)), change_col_indices(std::move(idx)), col_raws(std::move(payloads)) {}
+        std::vector<uint16_t> col_indices; // colVector | colElements
+        std::optional<uint64_t> dscn;      // row-dependency scn
+        explicit Ch_Urp(Ch_hdr &&h, std::vector<uint16_t> &&idx, RawFlds &&payloads, std::optional<uint64_t> d) noexcept
+            : Ch_hdr(std::move(h)), col_raws(std::move(payloads)), col_indices(std::move(idx)), dscn{d} {}
     };
     struct Ch_Orp : Ch_hdr {
         RawFlds col_raws;
-        // todo :: if OP_ROWDEPENDENCIES{0x40} --> dscn
-        explicit Ch_Orp(Ch_hdr &&h, RawFlds &&payloads) noexcept :
-            Ch_hdr(std::move(h)), col_raws(std::move(payloads)) {}
+        std::optional<uint64_t> dscn; // row-dependency scn
+        explicit Ch_Orp(Ch_hdr &&h, RawFlds &&payloads, std::optional<uint64_t> d) noexcept
+            : Ch_hdr(std::move(h)), col_raws(std::move(payloads)), dscn{d} {}
     };
     struct Ch_Qmi : Ch_hdr {
-        std::vector<uint16_t> row_sizes;
         RawFlds row_raws;
-        Ch_Qmi(Ch_hdr &&h, std::vector<uint16_t> &&sizes, RawFlds &&payloads) noexcept :
-            Ch_hdr(std::move(h)), row_sizes(std::move(sizes)), row_raws(std::move(payloads)) {}
+        std::vector<uint16_t> row_sizes;
+        Ch_Qmi(Ch_hdr &&h, std::vector<uint16_t> &&sizes, RawFlds &&payloads) noexcept
+            : Ch_hdr(std::move(h)), row_raws(std::move(payloads)), row_sizes(std::move(sizes)) {}
     };
 
     // ================================================================================
@@ -150,32 +98,12 @@ namespace ora {
         Ch_Pdr
     >;
 
-    template <typename T>
-    [[nodiscard]] inline Result<T> as_change(Ch_ktdo&& change) {
-        if (auto* ptr = std::get_if<T>(&change)) {
-            return std::move(*ptr);
-        }
-        return tl::make_unexpected(err_of("Type Mismatch"));
-    }
-
-    template<typename T>
-    [[nodiscard]] inline Result<T> as_change(Result<Ch_ktdo> &&res) {
-        if (!res)
-            return tl::make_unexpected(res.error());
-        if (auto *ptr = std::get_if<T>(&*res)) {
-            return std::move(*ptr);
-        }
-        return tl::make_unexpected(err_of("Type Mismatch"));
-    }
-
     // --------------------------------------------------------------------------------
     /// Ktb ~ Kdo ~ KdoBody
-    [[nodiscard]] inline Result<Ch_ktdo> parse_ktdo(SpanCursor &ctx,
-        const std::string_view name,
-        const bool isLittle) {
+    [[nodiscard]] inline Result<Ch_ktdo> parse_ktdo(SpanCursor &ctx, const std::string_view name, const bool isLittle) {
 
         // [#1, 2] KTB ~ KDO
-        auto sp12 = parse_kdo_hdr(ctx, fmt::format("{}:ktb", name), fmt::format("{}:kdo", name), isLittle);
+        auto sp12 = parse_ktdo_hdr(ctx, fmt::format("{}:ktb", name), fmt::format("{}:kdo", name), isLittle);
         if (sp12) return tl::make_unexpected(sp12.error());
 
         const auto type = get_kdoType(sp12->kdo.head.op);
@@ -187,11 +115,12 @@ namespace ora {
             case KdoType::Qmd: return Ch_Qmd{std::move(*sp12)};
             case KdoType::Lmn: return Ch_Lmn{std::move(*sp12)};     //
 
-            case KdoType::Drp:
-                if (sp12->is_rowDependencies()) {
-                    // todo ::
-                }
-                return Ch_Drp{std::move(*sp12)};
+            case KdoType::Drp: {
+                auto dscn = ctx.one_scn8_if("Ch11_2:dscn", isLittle, sp12->is_rowDependencies());
+                return Ch_Drp{
+                    std::move(*sp12),
+                    dscn };
+            }
 
 
             case KdoType::Irp: {
@@ -201,14 +130,11 @@ namespace ora {
                 auto raws = ctx.n_raws("Ch11_2:col_raw", col_cnt);
                 if (!raws) return tl::make_unexpected(raws.error());
 
-                if (sp12->is_rowDependencies()) {
-                    //todo:::
-                }
-
+                auto dscn = ctx.one_scn8_if("Ch11_2:dscn", isLittle, sp12->is_rowDependencies());
                 return Ch_Irp{
                     std::move(*sp12),
-                    std::move(*raws)
-                };
+                    std::move(*raws),
+                    dscn };
             }
 
             case KdoType::Urp: {
@@ -218,24 +144,23 @@ namespace ora {
                 auto indices = ctx.one_array<uint16_t>("Ch11_5:col_nums", nnew, isLittle);
                 if (!indices) return tl::make_unexpected(indices.error());
 
-                if ( sp12->is_kdom2() ) {
-                    // todo :::::
-                } else {
-                    // [# 4 ~ N] updated col-data : nnew
-                    auto raws = ctx.n_raws("Ch11_5:col_raw", nnew);
-                    if (!raws) return tl::make_unexpected(raws.error());
-                }
+                // [#4 ]
+                auto raws = sp12->is_kdom2()                                     //
+                                ? ctx.one_raws_by("Ch11_5:col-vector", *indices) // [# 4]   Col-Vector :: dumpColVector
+                                : ctx.n_raws("Ch11_5:col_raw", nnew);            // [# 4 ~] Col-Elements : nnew
 
-                if (sp12->is_rowDependencies()) {
-                    //todo
+                if (!raws) return tl::make_unexpected(raws.error());
 
-                }
-
+                // [~]
+                auto dscn = ctx.one_scn8_if("Ch11_5:row_dep", isLittle, sp12->is_rowDependencies());
 
                 return Ch_Urp{
                     std::move(*sp12),
                     std::move(*indices),
-                    std::move(*raws)};
+                    std::move(*raws),
+                    dscn
+                };
+
             }
 
             case KdoType::Orp: {
@@ -244,13 +169,16 @@ namespace ora {
                 // [# 3 ~ N] Column Data Fields : cc
                 auto raws = ctx.n_raws("Ch11_6:col_raw", col_cnt);
                 if (!raws) return tl::make_unexpected(raws.error());
-                if (sp12->is_rowDependencies()) {
-                    // todo :::
-                }
+
+                // [~]
+                auto dscn = ctx.one_scn8_if("Ch11_5:row_dep", isLittle, sp12->is_rowDependencies());
 
                 return Ch_Orp{
                     std::move(*sp12),
-                    std::move(*raws)};
+                    std::move(*raws),
+                    dscn
+                };
+
             }
 
             case KdoType::Qmi: {
@@ -260,7 +188,7 @@ namespace ora {
                 auto row_sizes = ctx.one_array<uint16_t>("Ch11_11:row_sizes", nrow, isLittle);
                 if (!row_sizes) return tl::make_unexpected(row_sizes.error());
 
-                // [# 4 ~ N] Multi-Row Data : nrow
+                // [# 4 ~ N] Multi-Row Data : nrow :: todo ::: dumpRows
                 auto raws = ctx.raws_by("Ch11_11:row_raws", *row_sizes);
                 if (!raws) return tl::make_unexpected(raws.error());
 

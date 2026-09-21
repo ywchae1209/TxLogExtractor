@@ -8,6 +8,17 @@
 #include "tcb/span.hpp"
 #include "../ora_layout.h"
 #include "../coral_result.h"
+#include "../change/change_05_02.h"
+#include "../change/change_05_04.h"
+#include "../change/change_05_06.h"
+#include "../change/change_05_11.h"
+#include "../change/change_05_12.h"
+#include "../change/change_05_19.h"
+#include "../change/change_05_20.h"
+#include "../change/change_05_30.h"
+#include "../change/change_17.h"
+#include "../change/change_24_04.h"
+#include "../change/change_24.h"
 
 namespace ora {
 
@@ -105,6 +116,9 @@ namespace ora {
         uint8_t  ctype;                 //// Change Type
 
         std::optional<uint8_t>  con_id; //// Container ID
+
+        uint16_t opc() const { return opLayer << 8 | opCode; }
+
     };
 
     // --------------------------------------------------------------------------------
@@ -113,11 +127,47 @@ namespace ora {
         const std::vector<tcb::span<const char>> spans;
     };
 
+    template <typename T>
+    void show(Result<T>& r) {
+        if (r) fmt::print("{}\n", to_string(*r));
+        else   fmt::print("Error: {}\n", r.error());
+    }
+
     // --------------------------------------------------------------------------------
     struct Change {
         ChangeHead change_head;
         LengthVector length_vector;
+
+        bool isLittle;
+        void parse_to_show() const {
+            auto opc = this->change_head.opc();
+            SpanCursor ctx{this->length_vector.spans, isLittle};
+            switch (opc) {
+
+                case 0x0502: { auto o = parse_0502(ctx); show(o); break;}
+                case 0x0504: { auto o = parse_0504(ctx); show(o); break;}
+                case 0x0506: { auto o = parse_0506(ctx); show(o); break;}
+                case 0x050B: { auto o = parse_0511(ctx); show(o); break;}
+                case 0x050C: { auto o = parse_0512(ctx); show(o); break;}
+                case 0x0513: { auto o = parse_0519(ctx); show(o); break;}
+                case 0x0514: { auto o = parse_0520(ctx); show(o); break;}
+                case 0x051E: { auto o = parse_0530(ctx); show(o); break;}
+
+
+                case 0x110F: { auto o = parse_1715(ctx); show(o); break;}
+                case 0x111B: { auto o = parse_1727(ctx); show(o); break;}
+
+                case 0x1801: { auto o = parse_2401(ctx); show(o); break;}
+                case 0x1804: { auto o = parse_2404(ctx); show(o); break;}
+                case 0x1806: { auto o = parse_2406(ctx); show(o); break;}
+
+
+                default: break;
+            }
+        }
+
     };
+
 
     // --------------------------------------------------------------------------------
     auto Changes_of(

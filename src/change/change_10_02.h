@@ -84,8 +84,8 @@ namespace ora {
         out.xle = *xle;
 
         // [# 3, 4] raw ~ raw
-        if (auto s = ctx.raw("Ch10_2:f3"); s) out.key_entry_data = std::move(*s); else return out;
-        if (auto s = ctx.raw("Ch10_2:f4"); s) out.slot_data = std::move(*s); else return out;
+        if (auto s = ctx.one_raw("Ch10_2:f3"); s) out.key_entry_data = std::move(*s); else return out;
+        if (auto s = ctx.one_raw("Ch10_2:f4"); s) out.slot_data = std::move(*s); else return out;
 
         // Mode 1: SINGLE Insert (code == 0) or fallback
         // ----------------------------------------------------------------------------
