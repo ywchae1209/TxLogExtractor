@@ -12,10 +12,8 @@ namespace ora {
     using std::optional;
     using namespace combinator;
 
-    /** 5.12 #1
-      * KTUST (KTU Status)
-      *
-      * https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Ktustvector
+    /** 5.12 #1 KTUST (KTU Status)
+      * - https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Ktustvector
       * - 로컬 트랜잭션 상태를 변경 (분산 트랜잭션)
       * - Change 5.12의 첫 번째 Element (24 bytes)
     */
@@ -25,15 +23,19 @@ namespace ora {
         uint32_t xid_sqn;       //  Transaction ID sqn
         uint32_t sta;           //  변경할 Transaction status
         uint8_t cflg;           //
+        static Result<Ktust> decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    static std::string to_string(const Ktust& a) {
-        return fmt::format("Ktust : "
-                           "slt: 0x{:x} sqn: {} sta: 0x{:x} cflg: 0x{:02x}",
-                           a.xid_slt, a.xid_sqn, a.sta, a.cflg);
-    }
+    /// {5, 12, "KTURST", "Change transaction state (in transaction table entry)"},
+    struct Change_0512 {
+        Ktust              ust;     // #1: Transaction Status Update Info
+        optional<uint32_t> unknown;  // #2: Unknown / Status Flag ??? (4 Bytes, optional)
+        static Result<Change_0512> parse(SpanCursor &ctx);
+    };
 
-    [[nodiscard]] inline Result<Ktust> decode_ktust(tcb::span<const char> buf, bool isLittle) {
+    // --------------------------------------------------------------------------------
+
+    inline Result<Ktust> Ktust::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 24) {
             return err_of(fmt::format("[Ktust] buf ({}) < {}", buf.size(), 24));
         }
@@ -47,19 +49,12 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    /// {5, 12, "KTURST", "Change transaction state (in transaction table entry)"},
-    struct Change_0512 {
-        Ktust              ust;     // #1: Transaction Status Update Info
-        optional<uint32_t> unknown;  // #2: Unknown / Status Flag ??? (4 Bytes, optional)
-    };
-
-    // --------------------------------------------------------------------------------
-    [[nodiscard]] inline Result<Change_0512> parse_0512(SpanCursor &ctx) {
+    inline Result<Change_0512> Change_0512::parse(SpanCursor &ctx) {
 
         Change_0512 out;
 
         // [# 1] ust
-        auto ust = ctx.one_of<Ktust>("Ch5_12:ust", decode_ktust);
+        auto ust = ctx.one_of<Ktust>("Ch5_12:ust", Ktust::decode);
         if (!ust) return tl::make_unexpected(ust.error());
         out.ust = std::move(*ust);
 
@@ -70,6 +65,13 @@ namespace ora {
         out.unknown = std::move(*state);
         return out;
 
+    }
+
+    // --------------------------------------------------------------------------------
+    static std::string to_string(const Ktust& a) {
+        return fmt::format("Ktust : "
+                           "slt: 0x{:x} sqn: {} sta: 0x{:x} cflg: 0x{:02x}",
+                           a.xid_slt, a.xid_sqn, a.sta, a.cflg);
     }
 
     static std::string to_string(const Change_0512& a) {

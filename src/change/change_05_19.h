@@ -33,7 +33,7 @@ namespace ora {
         TRANSACTION_NAME,
         CLIENT_ID,
         GLOBAL_TRANSACTION_ID, // todo check ::: Global Tx id (GTRID) 또는 PDB Global Service Name / Shard Key Context
-        STREAMS_TAG,           //  DBMS_STREAMS Tag (Raw/Hex string)
+        STREAMS_TAG,           // DBMS_STREAMS Tag (Raw/Hex string)
 
         // audit flag
         DDL_TRANSACTION,
@@ -117,7 +117,6 @@ namespace ora {
     };
 
     // --------------------------------------------------------------------------------
-
     // [#1] Session & Serial
     inline void decode_session_serial(tcb::span<const char> buf,
                                           bool isLittle,
@@ -244,7 +243,7 @@ namespace ora {
             case FEDERATION_PDB_REPLAY:                    return "Federation PDB replay";
             case PDB_DDL_REPLAY:                           return "PDB DDL replay";
             case LOGMINER_SKIP_TRANSACTION:                return "LogMiner SKIP transaction";
-            case SEQ_UPDATE_TRANSACTION:                   return "SEQ$ update transaction";
+            case SEQ_UPDATE_TRANSACTION:                   return "SEQ update transaction";
         }
         return "unknown";
     }

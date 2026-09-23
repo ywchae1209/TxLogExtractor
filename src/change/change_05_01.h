@@ -6,8 +6,8 @@
 #include <vector>
 #include "../coral_combinator.h"
 #include "../elements/layout_kdli.h"
+#include "../elements/layout_ktubu.h"
 #include "../elements/layout_5.h"
-#include "../elements/layout_5_ktub.h"
 #include "change_kdo.h"
 #include "tcb/span.hpp"
 #include "tl/expected.hpp"
@@ -21,6 +21,39 @@ namespace ora {
 
     using coral::Result, coral::err_of;
     using namespace combinator;
+
+    /// 5.1 #1 KTUDB (KTU Undo Block)
+    ///- https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Ktudb
+    ///- Undo 레코드 정보를 기록
+    struct Ktudb {
+        uint16_t size;    //  Undo record size
+        uint16_t spc;     //  free space(?)
+        uint16_t flag;    //
+        uint16_t xid_usn; //  xid undo segment num
+        uint16_t xid_slt; // xid slot
+        uint32_t xid_sqn; // xid sequence number
+        uint16_t seq;     // undo block's sqn
+        uint8_t rec;      // record# in undo block
+
+        static Result<Ktudb> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    inline Result<Ktudb> Ktudb::decode(tcb::span<const char> buf, const bool isLittle) {
+        if ( buf.size() < 20) {
+            return err_of(fmt::format("[Ktudb] buf({}) < {}", buf.size(), 20));
+        }
+
+        return Ktudb{
+            .size    = decode_At<uint16_t>(buf, isLittle, 0),
+            .spc     = decode_At<uint16_t>(buf, isLittle, 2),
+            .flag    = decode_At<uint16_t>(buf, isLittle, 4),
+            .xid_usn = decode_At<uint16_t>(buf, isLittle, 8),
+            .xid_slt = decode_At<uint16_t>(buf, isLittle, 10),
+            .xid_sqn = decode_At<uint32_t>(buf, isLittle, 12),
+            .seq     = decode_At<uint16_t>(buf, isLittle, 16),
+            .rec     = decode_At<uint8_t >(buf, isLittle, 18),
+        };
+    }
 
     struct Ch_sup {
         Ktusp spl;
@@ -39,11 +72,11 @@ namespace ora {
         const auto col_cnt = usp->cc;
 
         // [#2] col-indices
-        auto col_ids = ctx.one_array<uint16_t>(name, col_cnt, isLittle);
+        auto col_ids = ctx.one_array<uint16_t>(name, col_cnt);
         if (!col_ids) return tl::make_unexpected(usp.error());
 
         // [#3] col-sizes
-        auto col_sizes = ctx.one_array<uint16_t>(name, col_cnt, isLittle);
+        auto col_sizes = ctx.one_array<uint16_t>(name, col_cnt);
         if (!col_sizes) return tl::make_unexpected(usp.error());
 
         // [#4~ N] col-raws
@@ -91,12 +124,12 @@ namespace ora {
     // --------------------------------------------------------------------------------
     struct Change_0501 {
         Ktudb udb;                   // # 1: KTU Undo Block Header (contain xid)
-        Ktub  ub;                    // # 2: KTU Block Header
+        Ktubu  ubu;                    // # 2: KTU Block Header
 
         KtuBody before{};
 
-        uint32_t objn() const { return ub.header.objn; }
-        uint32_t objd() const { return ub.header.objd; }
+        uint32_t objn() const { return ubu.header.objn; }
+        uint32_t objd() const { return ubu.header.objd; }
     };
 
     // --------------------------------------------------------------------------------
@@ -104,30 +137,30 @@ namespace ora {
     [[nodiscard]] inline Result<Change_0501> parse_0501( SpanCursor& ctx ) {
 
         // [# 1] udb (Undo Header)
-        auto udb = ctx.one_of<Ktudb>( "Ch5_1:udb", decode_ktudb);
+        auto udb = ctx.one_of<Ktudb>( "Ch5_1:udb", Ktudb::decode);
         if (!udb) return tl::make_unexpected(udb.error());
 
-        // [# 2] ub (Undo Block Header)
-        auto ub = ctx.one<Ktub>("Ch5_1:ub", [&](auto s) { return decode_ktub(s, ctx.isLittle, false); });
-        if (!ub) return tl::make_unexpected(ub.error());
+        // [# 2] ubu (Undo Block Header)
+        auto ubu = ctx.one<Ktubu>("Ch5_1:ub", [&](auto s) { return decode_ktub(s, ctx.isLittle, false); });
+        if (!ubu) return tl::make_unexpected(ubu.error());
 
         Change_0501 out {
             .udb = *udb,
-            .ub = *ub
+            .ubu = *ubu
         };
 
         // Incomplete ctx: don't analyze further :: in OLR
-        if ((out.ub.header.flg & (Ktub_Flag::MBU_HEAD | Ktub_Flag::MBU_TAIL | Ktub_Flag::MBU_MID)) != 0) {
+        if ((out.ubu.header.flg & (Ktub_Flag::MBU_HEAD | Ktub_Flag::MBU_TAIL | Ktub_Flag::MBU_MID)) != 0) {
             return out;
         }
 
-        const uint16_t op = out.ub.header.opc;
+        const uint16_t op = out.ubu.header.opc;
         switch (op) {
-            // 11.1 --> KDO Undo (Row Before Image )
+            // 11.1 --> KDO Undo (Row Before Image)
             case 0x0B01: {
                 // [# 3 ~ ] (Ktb ~ Kdo ~ ...) ~ (Ksup ~ ...)
                 KdoUndo undo{};
-                if (auto kdo = parse_ktdo(ctx, "Ch5_1:ktdo", ctx.isLittle)) undo.ktdo = std::move(*kdo);
+                if (auto kdo = parse_kdop(ctx, "Ch5_1:ktdo", ctx.isLittle)) undo.ktdo = std::move(*kdo);
                 if (auto sup = parse_ksup(ctx, "Ch5_1:uspl", ctx.isLittle)) undo.uspl = std::move(*sup);
                 out.before = std::move(undo);
                 return out;
@@ -154,7 +187,7 @@ namespace ora {
                 if (!elm) return tl::make_unexpected(elm.error());;
                 o.elem = *elm;
 
-                if (auto r = ctx.rest(""); r) o.rest = std::move(*r);
+                if (auto r = ctx.rest("Ch5_1:26.1:rest"); r) o.rest = std::move(*r);
 
                 out.before = std::move(o);
                 return out;
@@ -172,7 +205,7 @@ namespace ora {
             // 14.8 --> Truncate Undo
             case 0x0E08:
                 out.before = TrnUndo{
-                    .newobjd = ctx.one_scn8_if("Ch5_1:trn:newobjd", ctx.isLittle, true)
+                    .newobjd = ctx.one_scn8_if("Ch5_1:trn:newobjd", true)
                 };
 
             default: {

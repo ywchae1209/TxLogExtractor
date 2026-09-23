@@ -30,8 +30,8 @@ namespace ora {
         constexpr uint16_t BU_EXT         = 0x0800;
     }
 
-    // --- 1. 24
-    struct Ktub_base {
+    // --- 1. ~24
+    struct Ktubu_base {
         uint32_t objn;     // Object ID
         uint32_t objd;     // Data Object ID
         uint32_t tsn;      // Tablespace ID
@@ -41,7 +41,40 @@ namespace ora {
         uint8_t rci;       // Rollback Change Index
         uint16_t flg;      // Flags         -- read when over19c in OLR
         uint16_t wrp;      // Wrap Sequence -- read when over19c in OLR
+
+        bool is_begin_trans() const noexcept { return (flg & Ktub_Flag::BEGIN_TRANS) != 0; }
+        bool is_bu_ext() const noexcept { return (flg & Ktub_Flag::BU_EXT) != 0; }
+
+        bool is_mbu_head() const noexcept { return (flg & Ktub_Flag::MBU_HEAD) != 0; }
+        bool is_mbu_tail() const noexcept { return (flg & Ktub_Flag::MBU_TAIL) != 0; }
+        bool is_mbu_mid() const noexcept { return (flg & Ktub_Flag::MBU_MID) != 0; }
+        bool is_regular() const noexcept { return !(is_mbu_head() && is_mbu_tail() && is_mbu_mid()); }
+
+        bool is_lastSplit() const noexcept { return (flg & Ktub_Flag::LAST_SPLIT) != 0; }
+        bool is_userUndoDone() const noexcept { return (flg & Ktub_Flag::USER_DONE) != 0; }
+        bool is_tempObject() const noexcept { return (flg & Ktub_Flag::TEMP_OBJECT) != 0; }
+
+        static Result<Ktubu_base> decode(tcb::span<const char> buf, bool isLittle);
     };
+
+    inline Result<Ktubu_base> Ktubu_base::decode(tcb::span<const char> buf, bool isLittle) {
+
+        if ( buf.size() < 24)
+            return err_of(fmt::format("[Ktubu:base] buf({}) < {}", buf.size(), 24));
+
+        return Ktubu_base {
+            .objn     = decode_At<uint32_t>(buf, isLittle, 0),
+            .objd     = decode_At<uint32_t>(buf, isLittle, 4),
+            .tsn      = decode_At<uint32_t>(buf, isLittle, 8),
+            .prev_dba = decode_At<uint32_t>(buf, isLittle, 12),    // previous DBA
+            .opc      = static_cast<uint16_t>((decode_At<uint8_t>(buf, isLittle, 16) << 8) |
+                                               decode_At<uint8_t>(buf, isLittle, 17)),
+            .slt      = decode_At<uint8_t >(buf, isLittle, 18),
+            .rci      = decode_At<uint8_t >(buf, isLittle, 19),
+            .flg      = decode_At<uint16_t>(buf, isLittle, 20),
+            .wrp      = decode_At<uint16_t>(buf, isLittle, 22)
+        };
+    }
 
     // --- 2. ~ 28
     struct Ktubu_ext {
@@ -49,7 +82,7 @@ namespace ora {
         int16_t  buext_idx; // Offset 26 ~ 27 : BuExt Index
     };
 
-    // --- 3. ~76바이트 이상 KTUBL 전용 상세 확장 (Begin Trans) ---
+    // --- 3. ~76바이트 이상 (Begin Trans) ---
     struct Ktubl_ext {
         Ktb_uba7 prev_ctl_uba;         // Offset 28 ~ 34 (7 Bytes: UBA)
         uint64_t prev_ctl_max_cmt_scn; // Offset 36 ~ 43 (8 Bytes: SCN)
@@ -62,52 +95,41 @@ namespace ora {
 
     // ---
     /// Ktubu | Ktubl
-    struct Ktub {
-        Ktub_base           header;
+    struct Ktubu {
+        Ktubu_base          header;
         optional<Ktubu_ext> ext0;             // 28 Bytes Extension
         optional<Ktubl_ext> ext1;             // 76 Bytes Full Extension
 
-        [[nodiscard]] bool is_begin_trans() const noexcept { return (header.flg & Ktub_Flag::BEGIN_TRANS) != 0; }
+        bool is_begin_trans() const noexcept { return (header.flg & Ktub_Flag::BEGIN_TRANS) != 0; }
 
-        [[nodiscard]] bool is_mbu_head() const noexcept { return (header.flg & Ktub_Flag::MBU_HEAD) != 0; }
-        [[nodiscard]] bool is_mbu_tail() const noexcept { return (header.flg & Ktub_Flag::MBU_TAIL) != 0; }
-        [[nodiscard]] bool is_mbu_mid() const noexcept { return (header.flg & Ktub_Flag::MBU_MID) != 0; }
-        [[nodiscard]] bool is_regular() const noexcept { return !(is_mbu_head() && is_mbu_tail() && is_mbu_mid()); }
+        bool is_mbu_head() const noexcept { return (header.flg & Ktub_Flag::MBU_HEAD) != 0; }
+        bool is_mbu_tail() const noexcept { return (header.flg & Ktub_Flag::MBU_TAIL) != 0; }
+        bool is_mbu_mid() const noexcept { return (header.flg & Ktub_Flag::MBU_MID) != 0; }
+        bool is_regular() const noexcept { return !(is_mbu_head() && is_mbu_tail() && is_mbu_mid()); }
 
-        [[nodiscard]] bool is_lastSplit() const noexcept { return (header.flg & Ktub_Flag::LAST_SPLIT) != 0; }
-        [[nodiscard]] bool is_userUndoDone() const noexcept { return (header.flg & Ktub_Flag::USER_DONE) != 0; }
-        [[nodiscard]] bool is_tempObject() const noexcept { return (header.flg & Ktub_Flag::TEMP_OBJECT) != 0; }
+        bool is_lastSplit() const noexcept { return (header.flg & Ktub_Flag::LAST_SPLIT) != 0; }
+        bool is_userUndoDone() const noexcept { return (header.flg & Ktub_Flag::USER_DONE) != 0; }
+        bool is_tempObject() const noexcept { return (header.flg & Ktub_Flag::TEMP_OBJECT) != 0; }
+
+        bool has_ubu_ext() const noexcept { return ext0.has_value(); }
+        bool has_ubl_ext() const noexcept { return ext1.has_value(); }
 
 
-        [[nodiscard]] bool has_bu_ext() const noexcept { return ext0.has_value(); }
-        [[nodiscard]] bool has_bl_ext() const noexcept { return ext1.has_value(); }
+        static Result<Ktubu> decode_ktub(tcb::span<const char> buf, bool isLittle, bool hint);
+
     };
 
     // --------------------------------------------------------------------------------
-    inline Result<Ktub> decode_ktub(tcb::span<const char> buf, bool isLittle, bool hint) {
+    inline Result<Ktubu> Ktubu::decode_ktub(tcb::span<const char> buf, bool isLittle, bool hint) {
 
-        if (auto check = enough(buf, 24, "KTUB:Header"); !check) { return tl::make_unexpected(check.error()); }
+        auto base = Ktubu_base::decode(buf, isLittle);
+        if (!base) return tl::make_unexpected(base.error());
 
-        // ----------------------------------------
-        const Ktub_base header{
-            .objn  = decode_At<uint32_t>(buf, isLittle, 0),
-            .objd  = decode_At<uint32_t>(buf, isLittle, 4),
-            .tsn   = decode_At<uint32_t>(buf, isLittle, 8),
-            .prev_dba  = decode_At<uint32_t>(buf, isLittle, 12),    // previous DBA
-            .opc   = static_cast<uint16_t>((decode_At<uint8_t>(buf, isLittle, 16) << 8) | decode_At<uint8_t>(buf, isLittle, 17)),
-            .slt   = decode_At<uint8_t>(buf, isLittle, 18),
-            .rci   = decode_At<uint8_t>(buf, isLittle, 19),
-            .flg   = decode_At<uint16_t>(buf, isLittle, 20),
-            .wrp   = decode_At<uint16_t>(buf, isLittle, 22)
-        };
-
-        const bool is_ktubl = (header.flg & Ktub_Flag::BEGIN_TRANS) != 0 && hint;
         const size_t sz = buf.size();
 
         optional<Ktubu_ext> ext0;
-        optional<Ktubl_ext> ext1;
         // ----------------------------------------
-        if (sz >= 28 || (header.flg & Ktub_Flag::BU_EXT) != 0) {
+        if (sz >= 28 || base->is_bu_ext()) {
             if (enough(buf, 28, "KTUB:ext0")) {
                 ext0 = Ktubu_ext{
                     .flg2      = decode_At<uint16_t>(buf, isLittle, 24),
@@ -115,7 +137,10 @@ namespace ora {
                 };
             }
         }
+
+        optional<Ktubl_ext> ext1;
         // ----------------------------------------
+        const bool is_ktubl = base->is_begin_trans() && hint;
         if (is_ktubl && sz >= 76) {
             ext1 = Ktubl_ext{
                 .prev_ctl_uba         = decode_ktb_uba7(buf, isLittle, 28),
@@ -128,45 +153,45 @@ namespace ora {
             };
         }
 
-        return Ktub{
-            .header   = header,
+        return Ktubu{
+            .header   = std::move(*base),
             .ext0     = ext0,
             .ext1     = ext1
         };
     }
 
-    inline std::string to_string(const Ktub &ktub) {
+    inline std::string to_string(const Ktubu &a) {
         std::string out;
         out.reserve(256);
 
         // 1. --------------------------------------------
         fmt::format_to(std::back_inserter(out),
             "[{}] objn: {} objd: {} tsn: {} undo(prev_dba): 0x{:08x} opc: {}.{} slt: {} rci: {} flg: 0x{:04x} wrp: {}\n",
-            ktub.has_bl_ext() ? "KTUBL" : "KTUBU",
-            ktub.header.objn,
-            ktub.header.objd,
-            ktub.header.tsn,
-            ktub.header.prev_dba,
-            ktub.header.opc >> 8,
-            ktub.header.opc & 0xFF,
-            ktub.header.slt,
-            ktub.header.rci,
-            ktub.header.flg,
-            ktub.header.wrp
+            a.has_ubl_ext() ? "KTUBL" : "KTUBU",
+            a.header.objn,
+            a.header.objd,
+            a.header.tsn,
+            a.header.prev_dba,
+            a.header.opc >> 8,
+            a.header.opc & 0xFF,
+            a.header.slt,
+            a.header.rci,
+            a.header.flg,
+            a.header.wrp
         );
 
         // 2. ------------------------------------------
         fmt::format_to(std::back_inserter(out),
             "  └ Flags: [BeginTrans: {} | UserUndoDone: {} | TempObj: {} | TsnUndo: {}]\n",
-            ktub.is_begin_trans() ? "Yes" : "No",
-            (ktub.header.flg & Ktub_Flag::USER_DONE) ? "Yes" : "No",
-            (ktub.header.flg & Ktub_Flag::TEMP_OBJECT)  ? "Yes" : "No",
-            (ktub.header.flg & Ktub_Flag::TS_UNDO)? "Yes" : "No"
+            a.is_begin_trans() ? "Yes" : "No",
+            (a.header.flg & Ktub_Flag::USER_DONE) ? "Yes" : "No",
+            (a.header.flg & Ktub_Flag::TEMP_OBJECT)  ? "Yes" : "No",
+            (a.header.flg & Ktub_Flag::TS_UNDO)? "Yes" : "No"
         );
 
         // 3. ------------------------------------------
-        if (ktub.ext0.has_value()) {
-            const auto& e0 = *ktub.ext0;
+        if (a.ext0.has_value()) {
+            const auto& e0 = *a.ext0;
             fmt::format_to(std::back_inserter(out),
                 "  └ [Ext0] buext_idx: {} flg2: 0x{:04x}\n",
                 e0.buext_idx,
@@ -175,8 +200,8 @@ namespace ora {
         }
 
         // 4. ------------------------------------------
-        if (ktub.ext1.has_value()) {
-            const auto& e1 = *ktub.ext1;
+        if (a.ext1.has_value()) {
+            const auto& e1 = *a.ext1;
             fmt::format_to(std::back_inserter(out),
                 "  └ [Ext1] prev_ctl_uba: [dba:0x{:08x} sqn:{} rec:{}]\n"
                 "           prev_ctl_max_cmt_scn: {}\n"

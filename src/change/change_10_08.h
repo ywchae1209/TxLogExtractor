@@ -21,16 +21,44 @@ namespace ora {
     // Case A Header: kdxln (New Block Header )
     // --------------------------------------------------------------------------------
     struct Kdxln {
-        uint8_t  itl{0};   // Offset 0: Transaction Layer Index
-        uint8_t  nco{0};   // Offset 1: Number of Cols
-        uint8_t  dsz{0};   // Offset 2: Data Size
-        uint8_t  col{0};   // Offset 3: Column Count
-        uint8_t  flg{0};   // Offset 4: Flag
-        uint32_t nxt{0};   // Offset 8: Next Leaf Block DBA
-        uint32_t prv{0};   // Offset 12: Previous Leaf Block DBA
+        uint8_t  itl{0};   // Transaction Layer Index
+        uint8_t  nco{0};   // Number of Cols
+        uint8_t  dsz{0};   // Data Size
+        uint8_t  col{0};   // Column Count
+        uint8_t  flg{0};   // Flag
+        uint32_t nxt{0};   // Next Leaf Block DBA
+        uint32_t prv{0};   // Previous Leaf Block DBA
+
+        static Result<Kdxln> decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    [[nodiscard]] inline Result<Kdxln> decode_kdxln(tcb::span<const char> buf, bool isLittle) {
+    // --------------------------------------------------------------------------------
+    // Case B Header: kdxlenxt (Split Header - 최소 4 Bytes)
+    // --------------------------------------------------------------------------------
+    struct Kdxlenxt {
+        uint32_t nxt{0};   // Offset 0: Next Leaf Block DBA
+        static Result<Kdxlenxt> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    using KdxHead = std::variant<std::monostate,Kdxln, Kdxlenxt>;
+
+    /// {10, 8, "KDXLNE", "Index redo: init header of leaf block"}, (0x0A08 == Opcode 10.8)
+    struct Change_1008 {
+        optional<KtbVector>   ktb;        // Case A에서만 인입됨 (Case B는 empty)
+        KdxHead hdr;
+
+        // Raw Payloads
+        optional<RawFld>     slot_data;       // # 3: Row Index / Slot Table
+        optional<RawFld>     key_entry_data;  // # 4: Rows Payload Data
+
+        // Parsed
+        optional<vector<uint16_t>>  row_slots; // from # 3
+
+        static Result<Change_1008> parse(SpanCursor &ctx);
+    };
+
+    // --------------------------------------------------------------------------------
+    inline Result<Kdxln> Kdxln::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 16) {
             return err_of(fmt::format("[kdxln] buf size ({}) < 16", buf.size()));
         }
@@ -46,14 +74,7 @@ namespace ora {
         };
     }
 
-    // --------------------------------------------------------------------------------
-    // Case B Header: kdxlenxt (Split Header - 최소 4 Bytes)
-    // --------------------------------------------------------------------------------
-    struct Kdxlenxt {
-        uint32_t nxt{0};   // Offset 0: Next Leaf Block DBA
-    };
-
-    [[nodiscard]] inline Result<Kdxlenxt> decode_kdxlenxt(tcb::span<const char> buf, bool isLittle) {
+    inline Result<Kdxlenxt> Kdxlenxt::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 4) {
             return err_of(fmt::format("[kdxlenxt] buf size ({}) < 4", buf.size()));
         }
@@ -63,24 +84,8 @@ namespace ora {
         return h;
     }
 
-    using KdxHead = std::variant<std::monostate,Kdxln, Kdxlenxt>;
 
-    // --------------------------------------------------------------------------------
-    /// {10, 8, "KDXLNE", "Index redo: init header of leaf block"}, (0x0A08 == Opcode 10.8)
-    struct Change_1008 {
-        optional<KtbVector>   ktb;        // Case A에서만 인입됨 (Case B는 empty)
-        KdxHead hdr;
-
-        // Raw Payloads
-        optional<RawFld>     slot_data;       // # 3: Row Index / Slot Table
-        optional<RawFld>     key_entry_data;  // # 4: Rows Payload Data
-
-        // Parsed
-        optional<vector<uint16_t>>  row_slots; // from # 3
-    };
-
-    // --------------------------------------------------------------------------------
-    [[nodiscard]] inline Result<Change_1008> parse_1008( SpanCursor &ctx) {
+    inline Result<Change_1008> Change_1008::parse( SpanCursor &ctx) {
 
         Change_1008 out{};
 
@@ -97,7 +102,7 @@ namespace ora {
             out.ktb = *o_ktb;
 
             // [# 2] kdxln (16 bytes min)
-            auto o_hdr = ctx.one<Kdxln>("Ch10_8:kdxln", [&](auto s) { return decode_kdxln(s, ctx.isLittle); });
+            auto o_hdr = ctx.one_of<Kdxln>("Ch10_8:kdxln", Kdxln::decode);
             if (!o_hdr) return out;
             out.hdr = *o_hdr;
 
@@ -106,8 +111,7 @@ namespace ora {
             // Case B: Block Being Split (# 1 == 0)
             // ------------------------------------------------------------------------
             // [# 2] kdxlenxt (4 bytes min)
-            auto o_hdr = ctx.one<Kdxlenxt>("Ch10_8:kdxlenxt", [&](auto s) { return decode_kdxlenxt(s, ctx.isLittle);
-            });
+            auto o_hdr = ctx.one_of<Kdxlenxt>("Ch10_8:kdxlenxt", Kdxlenxt::decode);
             if (!o_hdr) return out;
             out.hdr = *o_hdr;
         }
@@ -120,7 +124,6 @@ namespace ora {
 
         // [-] from #3
         if (out.slot_data) { out.row_slots = out.slot_data->as_array(ctx.isLittle); }
-
 
         return out;
     }

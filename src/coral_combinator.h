@@ -137,6 +137,21 @@ namespace ora::combinator {
             return decoder(*s);
         }
 
+        template<typename T, typename Func>
+        Result<std::vector<T>> rest_of(std::string_view name, Func &&decoder) {
+
+            const auto cnt = remaining();
+            std::vector<T> out;
+            out.reserve(cnt);
+
+            for (auto i = 0; i < cnt; i++) {
+                auto r = one_of(name, decoder);
+                if (!r) break;
+                out.elems.push_back(std::move(*r));
+            }
+            return out;
+        }
+
         // -------------------------------------------------------------------------------
         Result<uint64_t> one_scn8(std::string_view name, bool isLittle) {
             auto s = next(name);
@@ -145,7 +160,7 @@ namespace ora::combinator {
             return decode_ktb_scn8(*s, isLittle, 0);
         }
 
-        std::optional<uint64_t> one_scn8_if(std::string_view name, bool isLittle, bool cond) {
+        std::optional<uint64_t> one_scn8_if(std::string_view name, bool cond) {
             if (!cond) return std::nullopt;
             auto out = one_scn8(name, isLittle);
             if (!out.has_value()) return std::nullopt;
@@ -170,7 +185,7 @@ namespace ora::combinator {
         // -------------------------------------------------------------------------------
         /// one span --> split to 'array of Int'
         template <typename T>
-        Result<std::vector<T>> one_array(const std::string_view name, const size_t count, bool isLittle) {
+        Result<std::vector<T>> one_array(const std::string_view name, const size_t count) {
 
             static_assert(std::is_integral_v<T>, "T must be an integral type");
 

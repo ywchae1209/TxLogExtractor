@@ -99,7 +99,6 @@ namespace ora {
         fmt::println( "  ** LV : [{}]", fmt::join(c.length_vector.sizes, ", ") );
         if (dump) show(c.length_vector, dump);
 
-
         c.parse_to_show();
 
     }

@@ -1,10 +1,10 @@
 #pragma once
-
-#include "tcb/span.hpp"
-#include "../coral_decode.h"
-#include "../coral_result.h"
+#include "../coral_combinator.h"
 
 namespace ora {
+
+    using  coral::Result;
+    using namespace combinator;
 
     using coral::decode_At, coral::Result, coral::err_of;
     using std::optional;
@@ -21,9 +21,21 @@ namespace ora {
         uint32_t scn_base;      //  시작 SCN base
         uint16_t scn_wrap;      //  시작 SCN wrap
         uint16_t scn_wrap2;     //  Oracle 12.2.0.1 이상 extended SCN wrap
+
+        ///
+        static Result<Ktrth> decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    [[nodiscard]] inline Result<Ktrth> decode_ktrth(tcb::span<const char> buf, bool isLittle) {
+    /// {17, 27, "KTRTH", "Thread Enable Marker / Recover Thread"}, (0x111B == Opcode 17.27)
+    /// - rth ::: Thread Enable Marker
+    struct Change_1727 {
+        Ktrth rth; // # 1
+
+        static Result<Change_1727> parse( SpanCursor &ctx);
+    };
+
+    // --------------------------------------------------------------------------------
+    inline Result<Ktrth> Ktrth::decode(tcb::span<const char> buf, bool isLittle) {
         constexpr auto sz_Ktrth = 16;
 
         if ( buf.size() < sz_Ktrth) {
@@ -39,6 +51,16 @@ namespace ora {
         };
     }
 
+    inline Result<Change_1727> Change_1727::parse( SpanCursor &ctx) {
+
+        // [# 1] rth
+        auto rth = ctx.one_of<Ktrth>("Ch17_27:rth", Ktrth::decode);
+        if (!rth) return tl::make_unexpected(rth.error());
+
+        return Change_1727{ .rth = std::move(*rth) };
+    }
+
+    // --------------------------------------------------------------------------------
     inline std::string to_string(Ktrth &a) {
         return fmt::format("Ktrth thread: {} lsqn: {}, "
                            "scn: 0x{:04x}.{:08x}/{:04x} ",
@@ -47,4 +69,8 @@ namespace ora {
     }
 
 
+    inline std::string to_string(Change_1727 &c) {
+        return fmt::format("Ch17_27: {}",to_string(c.rth));
+
+    }
 }

@@ -239,9 +239,9 @@ namespace ora {
         Ktb_OpData op_data = monostate{};
         switch (op_sub) {
             case KtbOpCode::C: {
-                auto d = decode_ktb_op_c(buf, isLittle, sp);
-                if (!d) return tl::make_unexpected(d.error());
-                op_data = std::move(*d);
+                if (auto d = decode_ktb_op_c(buf, isLittle, sp)) op_data = std::move(*d);
+                else return tl::make_unexpected(d.error());
+
                 break;
             }
             case KtbOpCode::L: {
@@ -285,5 +285,9 @@ namespace ora {
             .op_data  = std::move(op_data),
             .cleanout = std::move(cleanout)
         };
+    }
+
+    static std::string to_string(KtbVector const &a) {
+        return "";
     }
 }

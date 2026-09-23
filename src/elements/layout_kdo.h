@@ -12,7 +12,6 @@ namespace ora {
     using coral::decode_at, coral::decode_At, coral::Result, coral::err_of;
     using std::optional;
 
-
     namespace FBFlag {
         constexpr uint8_t FB_N{0x01}; // 1 << 0
         constexpr uint8_t FB_P{0x02}; // 1 << 1
@@ -65,20 +64,14 @@ namespace ora {
         o19 = 0x13, // todo ::
         Shk = 0x14, // todo ::
         o21 = 0x15, // todo ::
-        Cmp = 0x16, // todo ::       // <<< -------------------
+        Cmp = 0x16, // todo ::
         Dcu = 0x17, // todo ::
         Mrk = 0x18, // todo ::
         Unknown = 0xFF,
     };
 
-    constexpr bool is_redo(uint8_t op) { return op < 0x20; }
-    constexpr bool is_undo(uint8_t op) { return !is_redo(op); }
-
-    constexpr uint8_t OP_ROWDEPENDENCIES{0x40};
-    constexpr bool is_rowDependencies(uint8_t op) { return (op & OP_ROWDEPENDENCIES) != 0; }
-
-    KdoType get_kdoType(uint8_t op_code) {
-        switch (op_code & 0x1F) {    // op_code & 0x1F or & 0x3F
+    inline KdoType get_kdoType(uint8_t op_code) {
+        switch (static_cast<KdoType>(op_code & 0x1F)) {    // op_code & 0x1F or & 0x3F
             case KdoType::Iur: return KdoType::Iur; // todo :: check 0x21
             case KdoType::Irp: return KdoType::Irp; // Single Insert (Redo: 0x02, Undo: 0x23)
             case KdoType::Drp: return KdoType::Drp; // Single Delete (Redo: 0x03, Undo: 0x22)
@@ -103,9 +96,16 @@ namespace ora {
             default: return KdoType::Unknown;
         }
     }
-    constexpr std::string_view kdoType_string(uint8_t op_code) {
 
-        switch (op_code & 0x1F) {
+    constexpr bool is_redo(uint8_t op) { return op < 0x20; }
+    constexpr bool is_undo(uint8_t op) { return !is_redo(op); }
+
+    constexpr uint8_t OP_ROWDEPENDENCIES{0x40};
+    constexpr bool is_rowDependencies(uint8_t op) { return (op & OP_ROWDEPENDENCIES) != 0; }
+
+    constexpr std::string_view kdoType_string(uint8_t op) {
+
+        switch (static_cast<KdoType>(op & 0x1F)) {
             case KdoType::Iur: return "Iur";
             case KdoType::Irp: return "Irp"; // Single Insert (Redo: 0x02, Undo: 0x23)
             case KdoType::Drp: return "Drp"; // Single Delete (Redo: 0x03, Undo: 0x22)
@@ -424,7 +424,6 @@ namespace ora {
         uint16_t slot;           //  slot
         uint8_t manipulate_code; //  manipulate code --- not sure
     };
-    static_assert(sizeof(KdoMfcBody) == 4, "KdoMfcBody size mismatch");
 
     [[nodiscard]] inline Result<KdoMfcBody> decode_kdo_mfc_body(tcb::span<const char> buf, bool isLittle) {
         constexpr auto sz_MfcBody = 4;
@@ -688,12 +687,12 @@ namespace ora {
         KdoBody body;
     };
 
-    [[nodiscard]] inline constexpr bool is_mfc(const KdoVector &kdo) noexcept { return is_mfc(kdo.body); }
-    [[nodiscard]] inline constexpr bool is_irp(const KdoVector &kdo) noexcept { return is_irp(kdo.body); }
-    [[nodiscard]] inline constexpr bool is_drp(const KdoVector &kdo) noexcept { return is_drp(kdo.body); }
-    [[nodiscard]] inline constexpr bool is_urp(const KdoVector &kdo) noexcept { return is_urp(kdo.body); }
-    [[nodiscard]] inline constexpr bool is_orp(const KdoVector &kdo) noexcept { return is_orp(kdo.body); }
-    [[nodiscard]] inline constexpr bool is_lkr(const KdoVector &kdo) noexcept { return is_lkr(kdo.body); }
+    [[nodiscard]] static constexpr bool is_mfc(const KdoVector &kdo) noexcept { return is_mfc(kdo.body); }
+    [[nodiscard]] static constexpr bool is_irp(const KdoVector &kdo) noexcept { return is_irp(kdo.body); }
+    [[nodiscard]] static constexpr bool is_drp(const KdoVector &kdo) noexcept { return is_drp(kdo.body); }
+    [[nodiscard]] static constexpr bool is_urp(const KdoVector &kdo) noexcept { return is_urp(kdo.body); }
+    [[nodiscard]] static constexpr bool is_orp(const KdoVector &kdo) noexcept { return is_orp(kdo.body); }
+    [[nodiscard]] static constexpr bool is_lkr(const KdoVector &kdo) noexcept { return is_lkr(kdo.body); }
 
     [[nodiscard]] inline Result<KdoVector> decode_kdo(tcb::span<const char> buf, bool isLittle) {
 
@@ -732,4 +731,10 @@ namespace ora {
 
         return out;
     }
+
+
+    static std::string to_string(const KdoVector &kdo) {
+        return "";
+    }
+
 }

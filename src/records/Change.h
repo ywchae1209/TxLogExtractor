@@ -5,9 +5,6 @@
 #include <optional>
 #include <string>
 
-#include "tcb/span.hpp"
-#include "../ora_layout.h"
-#include "../coral_result.h"
 #include "../change/change_05_02.h"
 #include "../change/change_05_04.h"
 #include "../change/change_05_06.h"
@@ -16,9 +13,15 @@
 #include "../change/change_05_19.h"
 #include "../change/change_05_20.h"
 #include "../change/change_05_30.h"
-#include "../change/change_17.h"
+#include "../change/change_17_15.h"
+#include "../change/change_17_27.h"
+#include "../change/change_24_01.h"
 #include "../change/change_24_04.h"
-#include "../change/change_24.h"
+#include "../change/change_24_06.h"
+#include "../change/change_11.h"
+#include "../coral_result.h"
+#include "../ora_layout.h"
+#include "tcb/span.hpp"
 
 namespace ora {
 
@@ -144,22 +147,33 @@ namespace ora {
             SpanCursor ctx{this->length_vector.spans, isLittle};
             switch (opc) {
 
-                case 0x0502: { auto o = parse_0502(ctx); show(o); break;}
-                case 0x0504: { auto o = parse_0504(ctx); show(o); break;}
-                case 0x0506: { auto o = parse_0506(ctx); show(o); break;}
-                case 0x050B: { auto o = parse_0511(ctx); show(o); break;}
-                case 0x050C: { auto o = parse_0512(ctx); show(o); break;}
+                case 0x0502: { auto o = Change_0502::parse(ctx); show(o); break;}
+                case 0x0504: { auto o = Change_0504::parse(ctx); show(o); break;}
+                case 0x0506: { auto o = Change_0506::parse(ctx); show(o); break;}
+                case 0x050B: { auto o = Change_0511::parse(ctx); show(o); break;}
+                case 0x050C: { auto o = Change_0512::parse(ctx); show(o); break;}
                 case 0x0513: { auto o = parse_0519(ctx); show(o); break;}
                 case 0x0514: { auto o = parse_0520(ctx); show(o); break;}
-                case 0x051E: { auto o = parse_0530(ctx); show(o); break;}
+                case 0x051E: { auto o = Change_0530::parse(ctx); show(o); break;}
 
+                case 0x0B02: { auto o = Change_1102::parse(ctx); show(o); break;}
+                case 0x0B03: { auto o = Change_1103::parse(ctx); show(o); break;}
+                case 0x0B04: { auto o = Change_1104::parse(ctx); show(o); break;}
+                case 0x0B05: { auto o = Change_1105::parse(ctx); show(o); break;}
+                case 0x0B06: { auto o = Change_1106::parse(ctx); show(o); break;}
+                case 0x0B07: { auto o = Change_1107::parse(ctx); show(o); break;}
+                case 0x0B08: { auto o = Change_1108::parse(ctx); show(o); break;}
+                case 0x0B0B: { auto o = Change_1111::parse(ctx); show(o); break;}
+                case 0x0B0C: { auto o = Change_1112::parse(ctx); show(o); break;}
+                case 0x0B10: { auto o = Change_1116::parse(ctx); show(o); break;}
+                case 0x0B16: { auto o = Change_1122::parse(ctx); show(o); break;}
 
-                case 0x110F: { auto o = parse_1715(ctx); show(o); break;}
-                case 0x111B: { auto o = parse_1727(ctx); show(o); break;}
+                case 0x110F: { auto o = Change_1715::parse(ctx); show(o); break;}
+                case 0x111B: { auto o = Change_1727::parse(ctx); show(o); break;}
 
-                case 0x1801: { auto o = parse_2401(ctx); show(o); break;}
+                case 0x1801: { auto o = Change_2401::parse(ctx); show(o); break;}
                 case 0x1804: { auto o = parse_2404(ctx); show(o); break;}
-                case 0x1806: { auto o = parse_2406(ctx); show(o); break;}
+                case 0x1806: { auto o = Change_2406::parse(ctx); show(o); break;}
 
 
                 default: break;
@@ -167,7 +181,6 @@ namespace ora {
         }
 
     };
-
 
     // --------------------------------------------------------------------------------
     auto Changes_of(

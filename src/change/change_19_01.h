@@ -5,7 +5,7 @@
 
 #include "../coral_combinator.h"
 #include "../coral_decode.h"
-#include "../elements/layout_19_oraBlock.h"
+#include "../elements/layout_oraBlock.h"
 
 namespace ora {
 
@@ -19,10 +19,12 @@ namespace ora {
     struct Change_1901 {
         OraBlock oraBlock; // # 1
         uint8_t elm2;      // # 2
+
+        static Result<Change_1901> parse(SpanCursor &ctx);
     };
 
     // --------------------------------------------------------------------------------
-    [[nodiscard]] inline Result<Change_1901> decode_change_19_1(SpanCursor &ctx) {
+    inline Result<Change_1901> Change_1901::parse(SpanCursor &ctx) {
 
         Change_1901 out;
 

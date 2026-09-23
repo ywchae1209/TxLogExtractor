@@ -9,57 +9,6 @@ namespace ora {
     using std::optional;
 
 #pragma pack(push, 1)
-    /** 5.1 #1
-     * KTUDB (KTU Undo Block)
-     *
-     * https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Ktudb
-     * - Undo 레코드 정보를 기록
-     */
-    struct Ktudb {
-        uint16_t size;     // (2 bytes, offset 0) Undo record size
-        uint16_t spc;      // (2 bytes, offset 2) free space(?)
-        uint16_t flag;     // (2 bytes, offset 4)
-        uint16_t unknown0; // (2 bytes, offset 6)
-        uint16_t xid_usn;  // (2 bytes, offset 8) xid undo segment num
-        uint16_t xid_slt;  // (2 bytes, offset 10) xid slot
-        uint32_t xid_sqn;  // (4 bytes, offset 12) xid sequence number
-        uint16_t seq;      // (2 bytes, offset 16) undo block's sqn
-        uint8_t rec;       // (1 byte, offset 18) record# in undo block
-        uint8_t unknown1;  // (1 byte, offset 19)
-    };
-
-    static_assert(sizeof(Ktudb) == 20, "Ktudb size mismatch");
-#pragma pack(pop)
-
-    template<bool IsLittle>
-    inline Ktudb decode_ktudb0(tcb::span<const char> buf) {
-        return Ktudb{
-            .size    = decode_at<uint16_t, IsLittle>(buf, 0),
-            .spc     = decode_at<uint16_t, IsLittle>(buf, 2),
-            .flag    = decode_at<uint16_t, IsLittle>(buf, 4),
-            .unknown0= decode_at<uint16_t, IsLittle>(buf, 6),
-            .xid_usn = decode_at<uint16_t, IsLittle>(buf, 8),
-            .xid_slt = decode_at<uint16_t, IsLittle>(buf, 10),
-            .xid_sqn = decode_at<uint32_t, IsLittle>(buf, 12),
-            .seq     = decode_at<uint16_t, IsLittle>(buf, 16),
-            .rec     = decode_at<uint8_t,  IsLittle>(buf, 18),
-            .unknown1= decode_at<uint8_t,  IsLittle>(buf, 19)
-        };
-    }
-
-    [[nodiscard]] inline Result<Ktudb> decode_ktudb(tcb::span<const char> buf, const bool isLittle) {
-        if (auto sz = sizeof(Ktudb); buf.size() < sz) {
-            return err_of(fmt::format("[Ktudb] buf-size ({}) < {}", buf.size(), sz));
-        }
-
-        return isLittle
-                   ? decode_ktudb0<true>(buf)
-                   : decode_ktudb0<false>(buf);
-    }
-
-
-
-#pragma pack(push, 1)
     /** 5.1 #2
       * KTUBL (KTU Block/Undo Log)
       *
@@ -128,7 +77,7 @@ namespace ora {
      * - Undo 레코드의 식별 정보를 기록
      * - Change 5.1의 두 번째 Element (24 bytes)
     */
-    struct Ktubu {
+    struct Ktubu_ark {
         uint32_t objn;     // (4 bytes, offset 0) object number
         uint32_t objd;     // (4 bytes, offset 4) data object number
         uint32_t ts_num;   // (4 bytes, offset 8)
@@ -141,12 +90,12 @@ namespace ora {
         uint16_t unknown;  // (2 bytes, offset 22)
     };
 
-    static_assert(sizeof(Ktubu) == 24, "Ktubu size mismatch");
+    static_assert(sizeof(Ktubu_ark) == 24, "Ktubu size mismatch");
 #pragma pack(pop)
 
     template<bool IsLittle>
-    inline Ktubu decode_ktubu0(tcb::span<const char> buf) {
-        return Ktubu{
+    inline Ktubu_ark decode_ktubu0(tcb::span<const char> buf) {
+        return Ktubu_ark{
             .objn = decode_at<uint32_t, IsLittle>(buf, 0),
             .objd = decode_at<uint32_t, IsLittle>(buf, 4),
             .ts_num = decode_at<uint32_t, IsLittle>(buf, 8),
@@ -160,8 +109,8 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline Result<Ktubu> decode_ktubu(tcb::span<const char> buf, bool isLittle) {
-        if (auto sz = sizeof(Ktubu); buf.size() < sz) {
+    [[nodiscard]] inline Result<Ktubu_ark> decode_ktubu_ark(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(Ktubu_ark); buf.size() < sz) {
             return err_of(fmt::format("[Ktubu] buf-size ({}) < {}", buf.size(), sz));
         }
 
@@ -289,8 +238,4 @@ namespace ora {
 
         return out;
     }
-
-
-
-
 }

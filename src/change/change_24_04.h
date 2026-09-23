@@ -4,7 +4,6 @@
 #include <variant>
 #include "../coral_combinator.h"
 #include "../coral_decode.h"
-#include "../elements/layout_24.h"
 #include "tl/expected.hpp"
 
 namespace ora {
@@ -14,8 +13,7 @@ namespace ora {
 
     using namespace combinator;
 
-    /** 24.4 #1
-     * KTMRM (Media Recovery Marker)
+    /** 24.4 #1 KTMRM (Media Recovery Marker)
      *
      * https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-RecoveryMarker
      * - Media Recovery Marker (LogMiner transaction finalized marker)
@@ -33,16 +31,18 @@ namespace ora {
         uint16_t xid_slot;      //  Transaction ID slot
         uint32_t xid_sqn;       //  Transaction ID sequence number
         uint16_t type;          //  Recovery marker type
+
+        static Result<Ktmrm> decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    /** 24.4 #2
-     * KTPTX (Pseudo Transaction Marker)
+    /** 24.4 #2 * KTPTX (Pseudo Transaction Marker)
      *
      * https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-DpPesudoTx:가상트랜잭션시작/종료(0x06/0x07)
      * - 가상 트랜잭션 시작/종료 (0x06 / 0x07)
      * - Change 24.4 Pseudo Transaction Marker (28 bytes)
      */
     struct Ktptx {
+
         uint32_t objn;              // (4 bytes, offset 0) 테이블의 고유 식별 번호
         uint32_t objv;              // (4 bytes, offset 4) 테이블 버전 version
 
@@ -54,6 +54,7 @@ namespace ora {
         uint16_t parent_xid_slot;   // (2 bytes, offset 18) Parent Transaction ID slot
         uint32_t parent_xid_sqn;    // (4 bytes, offset 20) Parent Transaction ID sequence number
 
+        static Result<Ktptx> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /** 24.4 #2
@@ -108,7 +109,7 @@ namespace ora {
 
 
     // ================================================================================
-    [[nodiscard]] inline Result<Ktmrm> decode_ktmrm(tcb::span<const char> buf, bool isLittle) {
+    inline Result<Ktmrm> Ktmrm::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 16) {
             return err_of(fmt::format("[Ktmrm] buf-size ({}) < {}", buf.size(), 16));
         }
@@ -122,7 +123,7 @@ namespace ora {
     }
 
 
-    [[nodiscard]] inline Result<Ktptx> decode_ktptx(tcb::span<const char> buf, bool isLittle) {
+    inline Result<Ktptx> Ktptx::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 28) {
             return err_of(fmt::format("[Ktptx] buf-size ({}) < {}", buf.size(), 28));
         }
@@ -156,7 +157,7 @@ namespace ora {
         Change_2404 out;
 
         // [# 1] rmh (Media Recovery Marker)
-        auto rmh = ctx.one<Ktmrm>("Ch24_4:mrm", [&](auto s) { return decode_ktmrm(s, ctx.isLittle); });
+        auto rmh = ctx.one_of<Ktmrm>("Ch24_4:mrm", Ktmrm::decode);
         if (!rmh) return tl::make_unexpected(rmh.error());
         out.marker = *rmh;
 
@@ -166,8 +167,9 @@ namespace ora {
         switch (out.marker.type) {
             case 0x06:
             case 0x07: {
+
                 // [# 2] Pseudo Transaction Marker
-                auto o_ktptx = ctx.one_of<Ktptx>("Ch24_4:ktptx", decode_ktptx);
+                auto o_ktptx = ctx.one_of<Ktptx>("Ch24_4:ktptx", Ktptx::decode);
                 if (!o_ktptx) return tl::make_unexpected(o_ktptx.error());
                 out.body = PseudoTx{ .ptxh = *o_ktptx };
                 return out;
@@ -216,6 +218,7 @@ namespace ora {
                            "xid: 0x{:x}.0x{:x}.{} type: 0x{:02x}",
                            a.xid_usn, a.xid_slot, a.xid_sqn, a.type);
     }
+
     static std::string to_string(const Ktptx& a) {
         return fmt::format("Ktptx: "
                            "objn: {} objv: {} "

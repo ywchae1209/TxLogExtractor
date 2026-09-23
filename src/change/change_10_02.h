@@ -26,9 +26,30 @@ namespace ora {
 
         [[nodiscard]] constexpr bool is_single() const noexcept { return code == 0; }
         [[nodiscard]] constexpr bool is_array()  const noexcept { return code == 0x20; }
+
+        static Result<Kdxle> Kdxle::decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    inline Result<Kdxle> decode_kdxle(tcb::span<const char> buf, bool isLittle) {
+    /// {10, 2, "KDXLIN", "Index redo: insert leaf row"}, (0x0A02 == Opcode 10.2)
+    struct Change_1002 {
+        KtbVector       ktb;
+        optional<Kdxle> xle;
+
+        // raw
+        optional<RawFld> key_entry_data; // hold: # 3
+        optional<RawFld> slot_data;      // hold: # 4
+
+        // ARRAY Insert view
+        optional<vector<uint16_t>> key_entry_sizes;          // sizes#5
+        optional<vector<tcb::span<const char>>> key_entries; // from #3 (Key Payload)
+        optional<vector<uint16_t>> row_slots;                // from #4 (ROWID/Sloot Data List)
+
+        static Result<Change_1002> parse(SpanCursor &ctx);
+    };
+
+
+    // --------------------------------------------------------------------------------
+    inline Result<Kdxle> Kdxle::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 6) return err_of(fmt::format("[kdxle] buf size ({}) < 6", buf.size()));
 
         Kdxle h;
@@ -53,33 +74,17 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    /// {10, 2, "KDXLIN", "Index redo: insert leaf row"}, (0x0A02 == Opcode 10.2)
-    struct Change_1002 {
-        KtbVector       ktb;
-        optional<Kdxle> xle;
-
-        // raw
-        optional<RawFld> key_entry_data; // hold: # 3
-        optional<RawFld> slot_data;      // hold: # 4
-
-        // ARRAY Insert view
-        optional<vector<uint16_t>> key_entry_sizes;          // sizes#5
-        optional<vector<tcb::span<const char>>> key_entries; // from #3 (Key Payload)
-        optional<vector<uint16_t>> row_slots;                // from #4 (ROWID/Sloot Data List)
-    };
-
-    // --------------------------------------------------------------------------------
-    [[nodiscard]] inline Result<Change_1002> parse_1002( SpanCursor &ctx ) {
+    inline Result<Change_1002> Change_1002::parse( SpanCursor &ctx ) {
 
         Change_1002 out;
 
         // [# 1] Field 1: ktbRedo
-        auto ktb = ctx.one<KtbVector>("Ch10_2:ktb", [&](auto s) { return decode_ktb_redo(s, ctx.isLittle); });
+        auto ktb = ctx.one_of<KtbVector>("Ch10_2:ktb", decode_ktb);
         if (!ktb) return tl::make_unexpected(ktb.error());
         out.ktb = *ktb;
 
         // [# 2]  kdxle
-        auto xle = ctx.one<Kdxle>( "Ch10_2:xle", [&](auto s) { return decode_kdxle(s, ctx.isLittle); });
+        auto xle = ctx.one_of<Kdxle>( "Ch10_2:xle", Kdxle::decode);
         if (!xle) return out;
         out.xle = *xle;
 
@@ -97,7 +102,7 @@ namespace ora {
         // ----------------------------------------------------------------------------
         // [# 5] sizes
         auto count = out.xle->key_cnt;
-        auto o_sizes = ctx.one_array<uint16_t>("Ch10_2:f5", count, ctx.isLittle);
+        auto o_sizes = ctx.one_array<uint16_t>("Ch10_2:f5", count);
         if (!o_sizes || o_sizes->empty()) return out;
 
         out.key_entry_sizes = *o_sizes;
@@ -106,4 +111,6 @@ namespace ora {
         return out;
     }
 
+    // --------------------------------------------------------------------------------
+    //  tood :: to_string
 }
