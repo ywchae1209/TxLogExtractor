@@ -162,7 +162,7 @@ namespace ora {
     };
 
     // ================================================================================
-    using Ch_ktdo = std::variant <
+    using Change_kdo = std::variant <
         Ch_Irp, Ch_Drp,
         Ch_Lrk, Ch_Urp,
         Ch_Orp, Ch_Mfc,
@@ -171,7 +171,7 @@ namespace ora {
     >;
 
     template<typename V, typename T>
-    static Result<V> from(Result<Ch_ktdo> &&a) {
+    static Result<V> from(Result<Change_kdo> &&a) {
         if (!a) return tl::make_unexpected(a.error());
 
         if (std::holds_alternative<T>(*a))
@@ -198,11 +198,11 @@ namespace ora {
     }
 
     /// Ktb ~ Kdo ~ KdoBody
-    [[nodiscard]] inline Result<Ch_ktdo> parse_kdop(SpanCursor &ctx, const std::string_view name, const bool isLittle) {
+    [[nodiscard]] inline Result<Change_kdo> parse_kdop(SpanCursor &ctx, const std::string_view name, const bool isLittle) {
 
         // [#1, 2] KTB ~ KDO
         auto hdr = Ch_hdr::parse(ctx, name);
-        if (hdr) return tl::make_unexpected(hdr.error());
+        if (!hdr) return tl::make_unexpected(hdr.error());
 
         const auto type = get_kdoType(hdr->kdo.head.op);
 

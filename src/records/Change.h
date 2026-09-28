@@ -132,7 +132,7 @@ namespace ora {
 
     template <typename T>
     void show(Result<T>& r) {
-        if (r) fmt::print("{}\n", to_string(*r));
+        if (r) fmt::print("{}{}{}\n", coral::yellow, to_string(*r), coral::reset_color);
         else   fmt::print("Error: {}\n", r.error());
     }
 
@@ -152,8 +152,8 @@ namespace ora {
                 case 0x0506: { auto o = Change_0506::parse(ctx); show(o); break;}
                 case 0x050B: { auto o = Change_0511::parse(ctx); show(o); break;}
                 case 0x050C: { auto o = Change_0512::parse(ctx); show(o); break;}
-                case 0x0513: { auto o = parse_0519(ctx); show(o); break;}
-                case 0x0514: { auto o = parse_0520(ctx); show(o); break;}
+                case 0x0513: { auto o = Change_0519::parse(ctx); show(o); break;}
+                case 0x0514: { auto o = Change_0520::parse(ctx); show(o); break;}
                 case 0x051E: { auto o = Change_0530::parse(ctx); show(o); break;}
 
                 case 0x0B02: { auto o = Change_1102::parse(ctx); show(o); break;}
@@ -172,7 +172,7 @@ namespace ora {
                 case 0x111B: { auto o = Change_1727::parse(ctx); show(o); break;}
 
                 case 0x1801: { auto o = Change_2401::parse(ctx); show(o); break;}
-                case 0x1804: { auto o = parse_2404(ctx); show(o); break;}
+                case 0x1804: { auto o = Change_2404::parse(ctx); show(o); break;}
                 case 0x1806: { auto o = Change_2406::parse(ctx); show(o); break;}
 
 

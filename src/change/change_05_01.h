@@ -93,7 +93,7 @@ namespace ora {
     // --------------------------------------------------------------------------------
     /// KDO Undo (Before Image & Supplemental Logging)
     struct KdoUndo {
-        Ch_ktdo          ktdo; // ktb, kdo
+        Change_kdo          ktdo; // ktb, kdo
         optional<Ch_sup> uspl;
     };
 

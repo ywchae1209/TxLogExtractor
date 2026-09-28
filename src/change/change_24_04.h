@@ -67,6 +67,9 @@ namespace ora {
         uint8_t outcome;          // (1 byte, offset 0) 1 = Transaction end successfully, 2 = rollback
         uint8_t old_state;        // (1 byte, offset 1) Transaction status (9 = Free, 10 = Active)
         uint8_t new_state;        // (1 byte, offset 2) New transaction status
+
+        static Result<Kttxs> decode(tcb::span<const char> buf, bool isLittle);
+
     };
 
 
@@ -105,6 +108,9 @@ namespace ora {
     struct Change_2404 {
         Ktmrm marker; // # 1: Recovery Marker Header (16 Bytes, 필수)
         MrmBody body; // # 2~
+
+
+        static Result<Change_2404> parse(SpanCursor &ctx);
     };
 
 
@@ -140,7 +146,7 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline Result<Kttxs> decode_kttxs(tcb::span<const char> buf, bool isLittle) {
+    [[nodiscard]] inline Result<Kttxs> Kttxs::decode(tcb::span<const char> buf, bool isLittle) {
         if ( buf.size() < 4) {
             return err_of(fmt::format("[Kttxs] buf-size ({}) < {}", buf.size(), 4));
         }
@@ -152,7 +158,7 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline Result<Change_2404> parse_2404( SpanCursor& ctx) {
+    [[nodiscard]] inline Result<Change_2404> Change_2404::parse( SpanCursor& ctx) {
 
         Change_2404 out;
 
@@ -178,7 +184,7 @@ namespace ora {
             case 0x0C: {
                 FinalizedTx fin;
                 // [# 2] Transaction State Vector
-                auto o_kttxs = ctx.one_of<Kttxs>("Ch24_4:kttxs", decode_kttxs);
+                auto o_kttxs = ctx.one_of<Kttxs>("Ch24_4:kttxs", Kttxs::decode);
                 if (!o_kttxs) return tl::make_unexpected(o_kttxs.error());
                 fin.txs = *o_kttxs;
 
@@ -256,8 +262,7 @@ namespace ora {
     }
 
     static std::string to_string(const Change_2404& a) {
-        return fmt::format("Ch 24.4: {}\n"
-                           "         {}",
+        return fmt::format("Ch 24.4: {}\n{}",
                            to_string(a.marker),
                            to_string(a.body));
     }

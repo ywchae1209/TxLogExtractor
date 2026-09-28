@@ -736,5 +736,4 @@ namespace ora {
     static std::string to_string(const KdoVector &kdo) {
         return "";
     }
-
 }
