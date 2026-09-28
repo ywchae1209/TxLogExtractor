@@ -244,7 +244,7 @@ namespace ora {
     }
 
     inline std::string to_string(const KdoUndo &u) {
-        std::string uspl_str = u.uspl.has_value() ? "\n  uspl: " + to_string(u.uspl.value()) : "";
+        std::string uspl_str = u.uspl.has_value() ? "\n  " + to_string(u.uspl.value()) : "";
         return fmt::format("{}{}", to_string(u.ckdo), uspl_str);
     }
 
