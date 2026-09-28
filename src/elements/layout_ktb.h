@@ -41,11 +41,15 @@ namespace ora {
         }
     }
 
-    // --- structs ---
+    // ================================================================================
+    /// Commit
     struct Ktb_OpC {
         Ktb_uba7 uba;
+
+        static Result<Ktb_OpC> decode(tcb::span<const char> buf, bool isLittle, size_t sp);
     };
 
+    /// Lock/ ITL Change
     struct Ktb_OpL {
         Ktb_xid8  xid;
         Ktb_uba7  uba;
@@ -63,16 +67,23 @@ namespace ora {
 
             return flagStr;
         }
+        static Result<Ktb_OpL> decode(tcb::span<const char> buf, bool isLittle, size_t sp);
     };
 
+    /// ITL Table Redo
     struct Ktb_OpR {
         int16_t             itc;
         vector<Ktb_ItlEntry> entries;
+
+        static Result<Ktb_OpR> decode(tcb::span<const char> buf, bool isLittle, size_t sp);
     };
 
+    /// Flush / Tx
     struct Ktb_OpF {
         Ktb_xid8 xid;
         Ktb_uba7 uba;
+
+        static Result<Ktb_OpF> decode(tcb::span<const char> buf, bool isLittle, size_t sp);
     };
 
     using Ktb_OpData = variant<
@@ -117,18 +128,16 @@ namespace ora {
     // --------------------------------------------------------------------------------
 
     // 'C' (Commit, 0x02)
-    inline Result<Ktb_OpData> decode_ktb_op_c(tcb::span<const char> buf, bool isLittle, size_t sp) {
+    inline Result<Ktb_OpC> Ktb_OpC::decode(tcb::span<const char> buf, bool isLittle, size_t sp) {
         if (auto check = enough(buf, sp + 8, "KtbRedo:C"); !check) return tl::make_unexpected(check.error());
 
-        return Ktb_OpData{
-            Ktb_OpC{
-                .uba = decode_ktb_uba7(buf, isLittle, sp)
-            }
+        return Ktb_OpC{
+            .uba = decode_ktb_uba7(buf, isLittle, sp)
         };
     }
 
     // 'L' (Lock / ITL Change, 0x04)
-    inline Result<Ktb_OpData> decode_ktb_op_l(tcb::span<const char> buf, bool isLittle, size_t sp) {
+    inline Result<Ktb_OpL> Ktb_OpL::decode(tcb::span<const char> buf, bool isLittle, size_t sp) {
         if (auto check = enough(buf, sp + 24, "KtbRedo:L"); !check) return tl::make_unexpected(check.error());
 
         const auto xid  = decode_ktb_xid8(    buf, isLittle, sp);
@@ -139,19 +148,18 @@ namespace ora {
         const auto lkc  = static_cast<uint8_t>(l_f >> 8);
         const auto flag = static_cast<uint8_t>(l_f & 0xFF);
 
-        return Ktb_OpData{
+        return
             Ktb_OpL{
                 .xid  = xid ,
                 .uba  = uba ,
                 .lkc  = lkc ,
                 .flag = flag,
                 .scn  = scn,
-            }
         };
     }
 
     // 'R' (ITL Table Redo, 0x05)
-    inline Result<Ktb_OpData> decode_ktb_op_r(tcb::span<const char> buf, bool isLittle, size_t sp) {
+    inline Result<Ktb_OpR> Ktb_OpR::decode(tcb::span<const char> buf, bool isLittle, size_t sp) {
         if (auto check = enough(buf, sp + 4, "KtbRedo:R Header"); !check) return tl::make_unexpected(check.error());
 
         const auto itc = decode_At<int16_t>(buf, isLittle, sp + 2);
@@ -168,22 +176,21 @@ namespace ora {
             entries.push_back( decode_ktb_itlEntry24(buf, isLittle, off) );
         }
 
-        return Ktb_OpData{
+        return
             Ktb_OpR{
                 .itc = itc,
                 .entries = std::move(entries)
-            }
         };
     }
 
     // 'F' (Flush/Tx, 0x01)
-    inline Result<Ktb_OpData> decode_ktb_op_f(tcb::span<const char> buf, bool isLittle, size_t sp) {
+    inline Result<Ktb_OpF> Ktb_OpF::decode(tcb::span<const char> buf, bool isLittle, size_t sp) {
         if (auto check = enough(buf, sp + 16, "KtbRedo:F"); !check) return tl::make_unexpected(check.error());
 
-        return Ktb_OpData{ Ktb_OpF{
+        return
+            Ktb_OpF{
                 .xid = decode_ktb_xid8(buf, isLittle, sp),
                 .uba = decode_ktb_uba7(buf, isLittle, sp + 8)
-            }
         };
     }
 
@@ -239,27 +246,23 @@ namespace ora {
         Ktb_OpData op_data = monostate{};
         switch (op_sub) {
             case KtbOpCode::C: {
-                if (auto d = decode_ktb_op_c(buf, isLittle, sp)) op_data = std::move(*d);
+                if (auto d = Ktb_OpC::decode(buf, isLittle, sp)) op_data = Ktb_OpData{ std::move(*d)};
                 else return tl::make_unexpected(d.error());
-
                 break;
             }
             case KtbOpCode::L: {
-                auto d = decode_ktb_op_l(buf, isLittle, sp);
-                if (!d) return tl::make_unexpected(d.error());
-                op_data = std::move(*d);
+                if (auto d = Ktb_OpL::decode(buf, isLittle, sp)) op_data = Ktb_OpData{ std::move(*d)};
+                else return tl::make_unexpected(d.error());
                 break;
             }
             case KtbOpCode::R: {
-                auto d = decode_ktb_op_r(buf, isLittle, sp);
-                if (!d) return tl::make_unexpected(d.error());
-                op_data = std::move(*d);
+                if (auto d = Ktb_OpR::decode(buf, isLittle, sp)) op_data = Ktb_OpData{ std::move(*d) };
+                else return tl::make_unexpected(d.error());
                 break;
             }
             case KtbOpCode::F: {
-                auto d = decode_ktb_op_f(buf, isLittle, sp);
-                if (!d) return tl::make_unexpected(d.error());
-                op_data = std::move(*d);
+                if (auto d = Ktb_OpF::decode(buf, isLittle, sp)) op_data = Ktb_OpData{ std::move(*d) };
+                else return tl::make_unexpected(d.error());
                 break;
             }
             case KtbOpCode::Z:
@@ -287,7 +290,68 @@ namespace ora {
         };
     }
 
-    static std::string to_string(KtbVector const &a) {
-        return "";
+   // ================================================================================
+
+    inline std::string to_string(const Ktb_OpC &c) {
+        return fmt::format("OpC{{uba: {}}}", to_string(c.uba));
+    }
+
+    inline std::string to_string(const Ktb_OpL &l) {
+        return fmt::format(
+            "OpL {{xid: {}, uba: {}, lkc: {}, flag: 0x{:02x} ({}), scn: {}}}",
+            to_string(l.xid), to_string(l.uba), l.lkc, l.flag, l.flag_string(), to_string(l.scn)
+        );
+    }
+
+    inline std::string to_string(const Ktb_OpR &r) {
+        return fmt::format("OpR {{itc: {}, entries_count: {}}}", r.itc, r.entries.size());
+    }
+
+    inline std::string to_string(const Ktb_OpF &f) {
+        return fmt::format("OpF {{xid: {}, uba: {}}}", to_string(f.xid), to_string(f.uba));
+    }
+
+    inline std::string to_string(const Ktb_CleanoutEntry &e) {
+        return fmt::format("Entry {{itli: {}, flg: 0x{:02x}, scn: {}}}", e.itli, e.flg, to_string(e.scn));
+    }
+
+    inline std::string to_string(const Ktb_Cleanout &c) {
+        return fmt::format(
+            "    Cleanout {{scn: {}, opt: {}, ver: {}, entries_cnt: {}}}\n  ",
+            c.scn, c.opt, c.ver, c.entries_cnt
+        );
+    }
+
+    inline std::string to_string(const Ktb_OpData &data) {
+        return std::visit(
+            [](const auto &arg) -> std::string {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, std::monostate>) {
+                    return "None";
+                } else {
+                    return to_string(arg);
+                }
+            },
+            data
+        );
+    }
+
+    inline std::string to_string(const KtbVector &v) {
+        std::string cleanout_str = v.cleanout ? to_string(*v.cleanout) : "  ";
+
+        return fmt::format(
+            "  KTB {{\n"
+            "    ktb_op: 0x{:02x}, flg: 0x{:02x}, ver: {}, post_11g: {}\n"
+            "    op_code :'{}'\n"
+            "    op_data : {}\n"
+            "{}}}",
+            v.ktb_op,
+            v.flg,
+            v.ver,
+            v.post_11g,
+            v.op_code,
+            to_string(v.op_data),
+            cleanout_str
+        );
     }
 }

@@ -97,9 +97,10 @@ namespace ora {
         if (info) fmt::println( "{}", to_string(c.change_head));
         if (dump) coral::show_HexDump(c.change_head.span);
         fmt::println( "  ** LV : [{}]", fmt::join(c.length_vector.sizes, ", ") );
-        if (dump) show(c.length_vector, dump);
 
         c.parse_to_show();
+
+        if (dump) show(c.length_vector, dump);
 
     }
 

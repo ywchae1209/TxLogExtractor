@@ -4,7 +4,6 @@
 #include "../coral_combinator.h"
 #include "../coral_decode.h"
 #include "../elements/layout_kdli.h"
-#include "../elements/layout_ktb.h"
 #include "tl/expected.hpp"
 
 namespace ora {
@@ -19,7 +18,6 @@ namespace ora {
         KdliHead         head;         // # 3: LOB Common Header
         vector<KdliElem> elems;        // # 4, 5, 7: Kdli Sub-Elements
         vector<char>     data_payload; // # 6 (opc == 6): Raw LOB Binary Payload
-
 
         static Result<Change_2606> parse(SpanCursor &ctx);
     };
@@ -53,5 +51,9 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    // todo :: to_string
+    inline std::string to_string(const Change_2606& a) {
+
+        return fmt::format("Ch 26.6 : objd: {}\n  {} {}",
+            a.objd, to_string(a.head), to_string(a.elems));
+    }
 }

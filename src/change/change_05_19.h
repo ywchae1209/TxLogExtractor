@@ -58,7 +58,7 @@ namespace ora {
 
     inline std::string to_string(const Change_0519& a) {
         auto str = a.Change_Aud::to_string();
-        return fmt::format("Ch 5.19: \n{}", str);
+        return fmt::format("Ch 5.19:\n{}", str);
     }
 
 }

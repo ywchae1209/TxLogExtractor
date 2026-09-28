@@ -110,20 +110,17 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     static std::string to_string(const Ktucm& a) {
-        return fmt::format("Ktucm : "
-                           "slt: 0x{:04x} sqn: 0x{:08x} srt:{} sta: {} flg: 0x{:x}",
+        return fmt::format("UCM : slt: 0x{:04x} sqn: 0x{:08x} srt:{} sta: {} flg: 0x{:x}",
                            a.xid_slt, a.xid_sqn, a.srt, a.sta, a.flg);
     }
 
     static std::string to_string(const Ktucf& a) {
-        return fmt::format("Ktucf : "
-                           "uba: 0x{:08x}.{:04x}.{:02x} ext:{} spc:{} fbi:{}",
+        return fmt::format("\n  UCF : uba: 0x{:08x}.{:04x}.{:02x} ext:{} spc:{} fbi:{}",
                            a.uba_dba, a.uba_sqn, a.uba_rec,
                            a.ext, a.spc, a.fbi);
     }
     static std::string to_string(const Change_0504& a) {
-        return fmt::format("Ch 5.4: {}\n"
-                           "        {}",
+        return fmt::format("Ch 5.4:\n  {}{}",
                            to_string(a.ucm),
                            a.has_ucf() ? to_string(*a.ucf) : "");
     }

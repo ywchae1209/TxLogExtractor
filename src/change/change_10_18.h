@@ -70,4 +70,7 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     // todo :: to_string
+    inline std::string to_string(const Change_1018 &h) {
+        return "todo";
+    }
 }

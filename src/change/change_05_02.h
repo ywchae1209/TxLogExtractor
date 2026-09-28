@@ -137,11 +137,11 @@ namespace ora {
     // --------------------------------------------------------------------------------
     static std::string to_string(const Kteop &a) {
         return fmt::format(
-            "kteop redo - redo operation on extent map\n"
-            "   SETHWM:       Highwater:: 0x{:08x} ext#: {:<6} blk#: {:<6} ext size: {:<6}\n"
-            "  #blocks in seg. hdr's freelists: {}\n"
-            "  #blocks below: {:<6}\n"
-            "  mapblk  0x{:08x} offset: {:<6}\n",
+            "\n  kteop redo - redo operation on extent map\n"
+            "    SetHWM: Highwater:: 0x{:08x} ext#: {:<6} blk#: {:<6} ext size: {:<6}\n"
+            "    #blocks in seg. hdr's freelists: {}\n"
+            "    #blocks below: {:<6}\n"
+            "    mapblk  0x{:08x} offset: {:<6}\n",
             a.highWater, a.ext, a.blk, a.ext_size,
             a.blocks_freelist,
             a.blocks_below,
@@ -150,9 +150,7 @@ namespace ora {
     }
 
     static std::string to_string(const Ktudh& a) {
-        return fmt::format("Ktudh : "
-                           "slt: 0x{:x} sqn:{} flg:{}, siz:{} fbi:{} "
-                           "uba: 0x{:08x}.{:04x}.{:02x} pxid: 0x{:x}.{:x}.{:x}]",
+        return fmt::format("UDH : slt: 0x{:x} sqn:{} flg:{}, siz:{} fbi:{} uba: 0x{:08x}.{:04x}.{:02x} pxid: 0x{:x}.{:x}.{:x}",
                            a.xid_slt, a.xid_sqn, a.flg, a.siz, a.fbi,
                            a.uba_dba, a.uba_sqn, a.uba_rec,
                            a.pxid_usn, a.pxid_slt, a.pxid_sqn);
@@ -163,11 +161,10 @@ namespace ora {
     }
 
     static std::string to_string(const Change_0502& a) {
-        return fmt::format("Ch 5.2: {}\n"
-                           "        {} {}",
+        return fmt::format("Ch 5.2:\n  {} {}{}",
             to_string(a.udh),
-            a.eop ? to_string(*a.eop) : "",
-            a.pdb ? to_string(*a.pdb) : "");
+            a.pdb ? to_string(*a.pdb) : "",
+            a.eop ? to_string(*a.eop) : "");
     }
 
 }

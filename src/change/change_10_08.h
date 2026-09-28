@@ -128,4 +128,8 @@ namespace ora {
         return out;
     }
 
+    inline std::string to_string(const Change_1008 &h) {
+        return "todo";
+    }
+
 }

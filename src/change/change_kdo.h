@@ -15,7 +15,7 @@ namespace ora {
     // --------------------------------------------------------------------------------
     struct Ch_hdr {
         KtbVector ktb; // # 1
-        KdoVector kdo; // # 2: KDO Head + variant-body
+        KdoVector kdo; // # 2
 
         bool is_kdom2() const noexcept { return kdo.head.is_kdom2(); }
         bool is_rowDependencies() const noexcept { return ora::is_rowDependencies(kdo.head.op); }
@@ -69,7 +69,6 @@ namespace ora {
                 std::move(*raws),
                 dscn };
         }
-
     };
 
     struct Ch_Urp : Ch_hdr {
@@ -188,7 +187,7 @@ namespace ora {
         if (!ktb) return tl::make_unexpected(ktb.error());
 
         // [# 2] Kdo
-        auto kdo = ctx.one_of<KdoVector>(fmt::format("{}:kdo", name), decode_kdo);
+        auto kdo = ctx.one_of<KdoVector>(fmt::format("{}:kdo", name), KdoVector::decode);
         if (!kdo) return tl::make_unexpected(kdo.error());
 
         return Ch_hdr {
@@ -247,41 +246,45 @@ namespace ora {
         return fmt::format("{}\n{}", to_string(a.ktb), to_string(a.kdo));
     }
 
-    static std::string to_string(const Ch_Lrk &a) { return fmt::format("Lrk: {}", to_string(static_cast<const Ch_hdr &>(a))); }
-    static std::string to_string(const Ch_Mfc &a) { return fmt::format("Mfc: {}", to_string(static_cast<const Ch_hdr &>(a))); }
-    static std::string to_string(const Ch_Cfa &a) { return fmt::format("Cfa: {}", to_string(static_cast<const Ch_hdr &>(a))); }
-    static std::string to_string(const Ch_Qmd &a) { return fmt::format("Qmd: {}", to_string(static_cast<const Ch_hdr &>(a))); }
-    static std::string to_string(const Ch_Lmn &a) { return fmt::format("Lmn: {}", to_string(static_cast<const Ch_hdr &>(a))); }
-
-    static std::string to_string(const Ch_Drp &a) {
-        return fmt::format("Drp: {}", to_string(static_cast<const Ch_hdr &>(a)));
-    }
+    static std::string to_string(const Ch_Lrk &a) { return fmt::format("Lrk:\n{}", to_string(static_cast<const Ch_hdr &>(a))); }
+    static std::string to_string(const Ch_Mfc &a) { return fmt::format("Mfc:\n{}", to_string(static_cast<const Ch_hdr &>(a))); }
+    static std::string to_string(const Ch_Cfa &a) { return fmt::format("Cfa:\n{}", to_string(static_cast<const Ch_hdr &>(a))); }
+    static std::string to_string(const Ch_Qmd &a) { return fmt::format("Qmd:\n{}", to_string(static_cast<const Ch_hdr &>(a))); }
+    static std::string to_string(const Ch_Lmn &a) { return fmt::format("Lmn:\n{}", to_string(static_cast<const Ch_hdr &>(a))); }
+    static std::string to_string(const Ch_Drp &a) { return fmt::format("Drp:\n{}", to_string(static_cast<const Ch_hdr &>(a))); }
 
     static std::string to_string(const Ch_Irp &a) {
-        // todo have more
-        return fmt::format("Irp: {} {}\n{}",
+        return fmt::format("Irp:\n{} {}\n{}",
                            to_string(static_cast<const Ch_hdr &>(a)),
                            a.dscn ? fmt::format("dscn: {}", *a.dscn) : "",
-                           to_string(a.col_raws));
+                           to_string(a.col_raws)
+                           );
     }
     static std::string to_string(const Ch_Urp &a) {
-        // todo have more
-        return fmt::format("Urp: {} {}",
+        return fmt::format("Urp:\n{} {}\n{}",
             to_string(static_cast<const Ch_hdr &>(a)),
-            a.dscn ? fmt::format("dscn: {}", *a.dscn) : ""
+            a.dscn ? fmt::format("dscn: {}", *a.dscn) : "",
+            to_string(a.col_raws)
+            // todo have more :: col_indices
             );
     }
     static std::string to_string(const Ch_Orp &a) {
-        // todo have more
-        return fmt::format("Orp: {} {}",
+        return fmt::format("Orp:\n{} {}\n{}",
             to_string(static_cast<const Ch_hdr &>(a)),
-            a.dscn ? fmt::format("dscn: {}", *a.dscn) : ""
+            a.dscn ? fmt::format("dscn: {}", *a.dscn) : "",
+            to_string(a.col_raws)
             );
     }
     static std::string to_string(const Ch_Qmi &a) {
-        // todo have more
-        return fmt::format("Qmi: {}",
-            to_string(static_cast<const Ch_hdr &>(a))
+        return fmt::format("Qmi:\n{}\n{}",
+            to_string(static_cast<const Ch_hdr &>(a)),
+            to_string(a.row_raws)
+            // todo have more :: row_indices
             );
     }
+
+    inline std::string to_string(const Change_kdo &ckdo) {
+        return std::visit([](const auto &c) { return to_string(c); }, ckdo);
+    }
+
 }

@@ -220,13 +220,12 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     static std::string to_string(const Ktmrm& a) {
-        return fmt::format("Ktmrm: "
-                           "xid: 0x{:x}.0x{:x}.{} type: 0x{:02x}",
+        return fmt::format("MRM: xid: 0x{:x}.0x{:x}.{} type: 0x{:02x}",
                            a.xid_usn, a.xid_slot, a.xid_sqn, a.type);
     }
 
     static std::string to_string(const Ktptx& a) {
-        return fmt::format("Ktptx: "
+        return fmt::format("PTX: "
                            "objn: {} objv: {} "
                            "pseudo_xid: 0x{:x}.0x{:x}.{} "
                            "parent_xid: 0x{:x}.0x{:x}.{}",
@@ -235,14 +234,14 @@ namespace ora {
                            a.parent_xid_usn, a.parent_xid_slot, a.parent_xid_sqn);
     }
     static std::string to_string(const Kttxs& a) {
-        return fmt::format("Kttxs: "
+        return fmt::format("TXS: "
                            "outcome: {} old_state: {} new_state: {}",
                            a.outcome, a.old_state, a.new_state);
     }
     static std::string to_string(const PseudoTx& a) { return to_string(a.ptxh); }
 
     static std::string to_string(const MinActiveTx& a) {
-        return fmt::format("MinActiveTx: min_act_tx_scn: 0x{:016x}", a.min_act_tx_scn);
+        return fmt::format("MinTx: min_act_tx_scn: 0x{:016x}", a.min_act_tx_scn);
     }
 
     static std::string to_string(const FinalizedTx& a) {
@@ -262,7 +261,7 @@ namespace ora {
     }
 
     static std::string to_string(const Change_2404& a) {
-        return fmt::format("Ch 24.4: {}\n{}",
+        return fmt::format("Ch 24.4:\n  {}\n  {}",
                            to_string(a.marker),
                            to_string(a.body));
     }

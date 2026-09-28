@@ -62,7 +62,7 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     inline std::string to_string(Ktrth &a) {
-        return fmt::format("Ktrth thread: {} lsqn: {}, "
+        return fmt::format("RTH: thread: {} lsqn: {}, "
                            "scn: 0x{:04x}.{:08x}/{:04x} ",
                            a.thread, a.logseq,
                            a.scn_wrap, a.scn_base, a.scn_wrap2);
@@ -70,7 +70,7 @@ namespace ora {
 
 
     inline std::string to_string(Change_1727 &c) {
-        return fmt::format("Ch17_27: {}",to_string(c.rth));
+        return fmt::format("Ch 17.27:\n  {}",to_string(c.rth));
 
     }
 }

@@ -23,7 +23,7 @@ namespace ora {
     /// {5, 6, "KTUIRB", "Rollback record index in an undo block"},
     struct Change_0506 {
         Ktubu              ubu;  // #1
-        optional<Ktuxvoff> voff; // #2  Rollback Record offset + flag
+        optional<Ktuxvoff> voff; // #2 Rollback Record offset + flag
 
         uint32_t objn() const { return ubu.header.objn; }
         uint32_t objd() const {return ubu.header.objd; };
@@ -48,7 +48,7 @@ namespace ora {
         Change_0506 out;
 
         // [# 1] ub
-        auto ktub = ctx.one<Ktubu>("Ch5_6:ubu", [&](auto s) { return Ktubu::decode_ktub(s, ctx.isLittle, true); });
+        auto ktub = ctx.one<Ktubu>("Ch5_6:ubu", [&](auto s) { return Ktubu::decode(s, ctx.isLittle, true); });
         if (!ktub) return tl::make_unexpected(ktub.error());
         out.ubu = std::move(*ktub);
 
@@ -62,12 +62,11 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     static std::string to_string(const Ktuxvoff& a) {
-        return fmt::format("Ktuxvoff : 0x{:04x} Ktuxvflg: 0x{:04x}", a.off, a.flg);
+        return fmt::format("\n  XVOFF: 0x{:04x} Ktuxvflg: 0x{:04x}", a.off, a.flg);
     }
 
     static std::string to_string(const Change_0506& a) {
-        return fmt::format("Ch 5.6: {}\n"
-                           "        {}",
+        return fmt::format("Ch 5.6:\n  {}{}",
                            to_string(a.ubu),
                            a.voff ? to_string(*a.voff) : "");
     }

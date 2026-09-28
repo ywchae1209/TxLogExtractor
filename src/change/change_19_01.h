@@ -38,4 +38,8 @@ namespace ora {
 
         return out;
     }
+
+    inline std::string to_string(Change_1901& a) {
+        return fmt::format("Ch 19.1:\n  oraBlock {}", "todo");
+    }
 }

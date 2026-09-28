@@ -22,9 +22,8 @@ namespace ora {
     using coral::Result, coral::err_of;
     using namespace combinator;
 
-    /// 5.1 #1 KTUDB (KTU Undo Block)
+    /// 5.1 #1 KTUDB (KTU Undo Block) - Undo 레코드 정보를 기록
     ///- https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Ktudb
-    ///- Undo 레코드 정보를 기록
     struct Ktudb {
         uint16_t size;    //  Undo record size
         uint16_t spc;     //  free space(?)
@@ -73,15 +72,15 @@ namespace ora {
 
         // [#2] col-indices
         auto col_ids = ctx.one_array<uint16_t>(name, col_cnt);
-        if (!col_ids) return tl::make_unexpected(usp.error());
+        if (!col_ids) return tl::make_unexpected(col_ids.error());
 
         // [#3] col-sizes
         auto col_sizes = ctx.one_array<uint16_t>(name, col_cnt);
-        if (!col_sizes) return tl::make_unexpected(usp.error());
+        if (!col_sizes) return tl::make_unexpected(col_sizes.error());
 
         // [#4~ N] col-raws
         auto col_raws = ctx.raws_by(name, *col_sizes);
-        if (!col_raws) return tl::make_unexpected(usp.error());
+        if (!col_raws) return tl::make_unexpected(col_raws.error());
 
         return Ch_sup{
             .spl = std::move(*usp),
@@ -90,10 +89,11 @@ namespace ora {
             .col_raws = std::move(*col_raws)
         };
     }
+
     // --------------------------------------------------------------------------------
     /// KDO Undo (Before Image & Supplemental Logging)
     struct KdoUndo {
-        Change_kdo          ktdo; // ktb, kdo
+        Change_kdo       ckdo; // ktb, kdo, ...
         optional<Ch_sup> uspl;
     };
 
@@ -123,25 +123,25 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     struct Change_0501 {
-        Ktudb udb;                   // # 1: KTU Undo Block Header (contain xid)
-        Ktubu  ubu;                    // # 2: KTU Block Header
-
-        KtuBody before{};
+        Ktudb udb;        // # 1: KTU Undo Block Header (contain xid)
+        Ktubu ubu;        // # 2: KTU Block Header
+        KtuBody before{}; //
 
         uint32_t objn() const { return ubu.header.objn; }
         uint32_t objd() const { return ubu.header.objd; }
+        static Result<Change_0501> parse( SpanCursor& ctx );
     };
 
     // --------------------------------------------------------------------------------
     /// Ktudb ~ Ktub(ubl/ubu) ~ Ktdo(Ktb ~ KdoHead ~< KdoBody (~ ...)) ~ Ktspl ~ ...
-    [[nodiscard]] inline Result<Change_0501> parse_0501( SpanCursor& ctx ) {
+    [[nodiscard]] inline Result<Change_0501> Change_0501::parse( SpanCursor& ctx ) {
 
         // [# 1] udb (Undo Header)
         auto udb = ctx.one_of<Ktudb>( "Ch5_1:udb", Ktudb::decode);
         if (!udb) return tl::make_unexpected(udb.error());
 
         // [# 2] ubu (Undo Block Header)
-        auto ubu = ctx.one<Ktubu>("Ch5_1:ub", [&](auto s) { return decode_ktub(s, ctx.isLittle, false); });
+        auto ubu = ctx.one<Ktubu>("Ch5_1:ub", [&](auto s) { return Ktubu::decode(s, ctx.isLittle, false); });
         if (!ubu) return tl::make_unexpected(ubu.error());
 
         Change_0501 out {
@@ -160,8 +160,12 @@ namespace ora {
             case 0x0B01: {
                 // [# 3 ~ ] (Ktb ~ Kdo ~ ...) ~ (Ksup ~ ...)
                 KdoUndo undo{};
-                if (auto kdo = parse_kdop(ctx, "Ch5_1:ktdo", ctx.isLittle)) undo.ktdo = std::move(*kdo);
-                if (auto sup = parse_ksup(ctx, "Ch5_1:uspl", ctx.isLittle)) undo.uspl = std::move(*sup);
+                if (auto kdo = parse_kdop(ctx, "Ch5_1:ktdo", ctx.isLittle)) undo.ckdo = std::move(*kdo);
+                else return tl::make_unexpected(kdo.error());
+
+                if (auto sup = parse_ksup(ctx, "Ch5_1:uspl", ctx.isLittle))
+                    undo.uspl = std::move(*sup);
+
                 out.before = std::move(undo);
                 return out;
             }
@@ -197,7 +201,14 @@ namespace ora {
             // todo ktb ~ KdilK ~ keys ~ keydata/bitmapVec ~ selflock ~ bitmap
             case 0x0A16: {
                 KliUndo undo{};
+
+                // [# 3] Ktb
+                auto ktb = ctx.one_of<KtbVector>("Ch5_1:10.22:ktb", decode_ktb);
+                if (!ktb) return tl::make_unexpected(ktb.error());
+                undo.ktb = *ktb;
+
                 if (auto r = ctx.rest(""); r) undo.rest = std::move(*r);
+                else return tl::make_unexpected(r.error());
                 out.before = std::move(undo);
                 return out;
             }
@@ -215,5 +226,69 @@ namespace ora {
                 return out;
             }
         }
+    }
+
+    // --------------------------------------------------------------------------------
+    inline std::string to_string(const Ktudb &u) {
+        return fmt::format(
+            "UDB {{size: {}, spc: {}, flag: 0x{:04x}, xid: {}.{}.{}, seq: {}, rec: {}}}",
+            u.size, u.spc, u.flag, u.xid_usn, u.xid_slt, u.xid_sqn, u.seq, u.rec
+        );
+    }
+
+    inline std::string to_string(const Ch_sup &s) {
+        return fmt::format(
+            "Sup {{spl: {}, col_cnt: {}, col_raws_cnt: {}}}",
+            to_string(s.spl), s.col_ids.size(), s.col_raws.size()
+        );
+    }
+
+    inline std::string to_string(const KdoUndo &u) {
+        std::string uspl_str = u.uspl.has_value() ? "\n  uspl: " + to_string(u.uspl.value()) : "";
+        return fmt::format("{}{}", to_string(u.ckdo), uspl_str);
+    }
+
+    inline std::string to_string(const KliUndo &u) {
+        return fmt::format(
+            "KLI {{\n{}\n  {}\n  {}\n  rest_cnt: {}\n  }}",
+            to_string(u.ktb), to_string(u.head), to_string(u.elem), u.rest.size()
+        );
+    }
+
+    inline std::string to_string(const TrnUndo &u) {
+        std::string objd_str = u.newobjd.has_value() ? fmt::format("{}", u.newobjd.value()) : "";
+        return fmt::format("Tx {{newobjd: {}}}", objd_str);
+    }
+
+    inline std::string to_string(const OtherUndo &u) {
+        return fmt::format("Other {{rest_cnt: {}}}", u.rest.size());
+    }
+
+    // ----------------------------------------------------------------------------------------------------
+
+    inline std::string to_string(const KtuBody &body) {
+        return std::visit(
+            [](const auto &arg) -> std::string {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, std::monostate>) {
+                    return "None";
+                } else {
+                    return to_string(arg);
+                }
+            },
+            body
+        );
+    }
+
+    inline std::string to_string(const Change_0501 &c) {
+        return fmt::format(
+            "Ch 5.1:\n"
+            "  {}\n"
+            "  {}\n"
+            "  --- Before --- {}\n",
+            to_string(c.udb),
+            to_string(c.ubu),
+            to_string(c.before)
+        );
     }
 }

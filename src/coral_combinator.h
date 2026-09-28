@@ -30,6 +30,8 @@ namespace ora::combinator {
     };
     struct RawFlds {
         std::vector<RawFld> elems;
+
+        size_t size() const { return elems.size(); }
     };
 
     static std::string to_string(const RawFld& a, size_t rows = 8) {
@@ -44,7 +46,7 @@ namespace ora::combinator {
         const bool odd = (display_bytes % 2 != 0);
 
         size_t group_cnt = 0;
-        result += "---\n  ";
+        result += "  ----------------------------------------\n  ";
 
         for (size_t i = 0; i < total_groups * 2; i += 2) {
             const auto b1 = static_cast<uint8_t>(a.bytes[i]);
@@ -78,7 +80,7 @@ namespace ora::combinator {
         for (size_t i = 0; i < a.elems.size(); ++i) {
             result += to_string(a.elems[i], rows);
             if (i + 1 < a.elems.size()) {
-                result += "\n\n";
+                result += "\n";
             }
         }
         return result;
@@ -145,9 +147,9 @@ namespace ora::combinator {
             out.reserve(cnt);
 
             for (auto i = 0; i < cnt; i++) {
-                auto r = one_of(name, decoder);
-                if (!r) break;
-                out.elems.push_back(std::move(*r));
+                auto s = next(name); if (!s) break;
+                auto v = decoder(*s, isLittle); if (!v) break;
+                out.push_back(*v);
             }
             return out;
         }
@@ -204,7 +206,7 @@ namespace ora::combinator {
         Result<RawFlds> n_raws(std::string_view name, size_t n) {
 
             const auto cnt = remaining();
-            if (n < cnt) return err_of(fmt::format("{} n_raw: {} < ctx.remaining()", name, n));
+            if (n > cnt) return err_of(fmt::format("{} n_raw: {} > {} ctx.remaining()", name, n, cnt));
 
             RawFlds out;
 
@@ -222,8 +224,8 @@ namespace ora::combinator {
         Result<RawFlds> raws_by( std::string_view name, tcb::span<uint16_t> sizes) {
 
             const auto cnt = remaining();
-            if (sizes.size() < cnt)
-                return err_of(fmt::format("{} raw_by: {} < ctx.remaining()", name, sizes.size()));
+            if (sizes.size() > cnt)
+                return err_of(fmt::format("{} raw_by: {} > {} ctx.remaining()", name, sizes.size(), cnt));
 
             RawFlds out;
 

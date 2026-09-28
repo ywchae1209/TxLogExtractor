@@ -27,7 +27,7 @@ namespace ora {
         [[nodiscard]] constexpr bool is_single() const noexcept { return code == 0; }
         [[nodiscard]] constexpr bool is_array()  const noexcept { return code == 0x20; }
 
-        static Result<Kdxle> Kdxle::decode(tcb::span<const char> buf, bool isLittle);
+        static Result<Kdxle> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// {10, 2, "KDXLIN", "Index redo: insert leaf row"}, (0x0A02 == Opcode 10.2)
@@ -113,4 +113,7 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     //  tood :: to_string
+    inline std::string to_string(const Change_1002& a) {
+        return "todo";
+    }
 }

@@ -69,14 +69,12 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     static std::string to_string(const Ktust& a) {
-        return fmt::format("Ktust : "
-                           "slt: 0x{:x} sqn: {} sta: 0x{:x} cflg: 0x{:02x}",
+        return fmt::format("UST : slt: 0x{:x} sqn: {} sta: 0x{:x} cflg: 0x{:02x}",
                            a.xid_slt, a.xid_sqn, a.sta, a.cflg);
     }
 
     static std::string to_string(const Change_0512& a) {
-        return fmt::format("Ch 5.12: {}\n"
-                           "         {}",
+        return fmt::format("Ch 5.12:\n  {} {}",
                            to_string(a.ust),
                            a.unknown ? fmt::format("unknown: 0x{:x}", *a.unknown) : "");
     }

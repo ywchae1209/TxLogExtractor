@@ -54,12 +54,12 @@ namespace ora {
         Orp = 0x06, // Overwrite Row
         Mfc = 0x07, // Manipulate First Column
         Cfa = 0x08, // Change Forwarding Address
-        Cki = 0x09, // Change Cluster key Index :: todo
+        Cki = 0x09, // Change Cluster key Index
         Skl = 0x0A, // Set Key Links
         Qmi = 0x0B, // Quick Multi-Insert
         Qmd = 0x0C, // Quick Multi-Delete
         Dsc = 0x0e, // todo ::
-        Lmn = 0x10, // Logminer
+        Lmn = 0x10, // Logmine r
         LLB = 0x11, // todo ::
         o19 = 0x13, // todo ::
         Shk = 0x14, // todo ::
@@ -146,44 +146,6 @@ namespace ora {
     constexpr bool is_cr(const uint8_t xt) { return (xt & 0x03) == KdoXAType::FLAGS_CR; }
 
     //--------------------------------------------------------------------------------
-    /** KDO Common Header (16 bytes)
-     * - Change 11.x KDO Vector의 공통 헤더
-     */
-    struct KdoHead {
-        uint32_t bdab;   // bdab (4 bytes, offset 0)
-        uint32_t hdba;   // hdba (4 bytes, offset 4)
-        uint16_t max_fr; // max fr (2 bytes, offset 8)
-        uint8_t op;      // operation code (1 byte, offset 10)
-        uint8_t xType;   // transaction type (1 byte, offset 11) // flags in OLR
-        uint8_t itli;    // itl slot (1 byte, offset 12)
-        uint8_t ispac;   //
-
-        bool is_redo() const noexcept { return ora::is_redo(op); }
-        bool is_undo() const noexcept { return ora::is_undo(op); }
-        bool is_rowDependencies() { return ora::is_rowDependencies(op); }
-
-        /** rType   */ bool is_kdom2() const noexcept { return ora::is_kdom2(xType); }
-        /** redo    */ bool is_xa() const noexcept { return ora::is_xa(xType); }
-        /** rollback*/ bool is_xr() const noexcept { return ora::is_xr(xType); }
-        /** unknown */ bool is_cr() const noexcept { return ora::is_cr(xType); }
-    };
-
-    constexpr auto sz_KdoHead = 16;
-
-    /// 16 byte
-    [[nodiscard]] inline Result<KdoHead> decode_kdo_head(tcb::span<const char> buf, bool isLittle) {
-        if (auto sz = sizeof(KdoHead); buf.size() < sz) {
-            return err_of(fmt::format("[KdoHead] buf-size ({}) < {}", buf.size(), sz));
-        }
-        return KdoHead{.bdab   = decode_At<uint32_t>(buf, isLittle, 0),
-                       .hdba   = decode_At<uint32_t>(buf, isLittle, 4),
-                       .max_fr = decode_At<uint16_t>(buf, isLittle, 8),
-                       .op     = decode_At<uint8_t >(buf, isLittle, 10),
-                       .xType  = decode_At<uint8_t >(buf, isLittle, 11),
-                       .itli   = decode_At<uint8_t >(buf, isLittle, 12),
-                       .ispac  = decode_At<uint8_t >(buf, isLittle, 13) };
-    }
-
     /// 1-based index :: nullsDelta --> ccData :: bit 0 == not-null, 1 == null
     inline std::optional<uint16_t> last_on_index(tcb::span<const char> buf, uint16_t cc) {
 
@@ -231,11 +193,32 @@ namespace ora {
         return result;
     }
 
-    /** KDO IRP Body - Insert Row Piece
-     *
-     * - Opcode: 0x02 (Redo), 0x23 (Undo)
-     * - Insert :: KdoIrp == KdoHead + KdoIrpBody
-     */
+
+    //--------------------------------------------------------------------------------
+    /// KDO Common (16 bytes): Change 5.1, 11.x KDO Vector의 공통 헤더
+    struct KdoHead {
+        uint32_t bdab;   // bdab (4 bytes, offset 0)
+        uint32_t hdba;   // hdba (4 bytes, offset 4)
+        uint16_t max_fr; // max fr (2 bytes, offset 8)
+        uint8_t op;      // operation code (1 byte, offset 10)
+        uint8_t xType;   // transaction type (1 byte, offset 11) // flags in OLR
+        uint8_t itli;    // itl slot (1 byte, offset 12)
+        uint8_t ispac;   //
+
+        bool is_redo() const noexcept { return ora::is_redo(op); }
+        bool is_undo() const noexcept { return ora::is_undo(op); }
+        bool is_rowDependencies() { return ora::is_rowDependencies(op); }
+
+        /** rType   */ bool is_kdom2() const noexcept { return ora::is_kdom2(xType); }
+        /** redo    */ bool is_xa() const noexcept { return ora::is_xa(xType); }
+        /** rollback*/ bool is_xr() const noexcept { return ora::is_xr(xType); }
+        /** unknown */ bool is_cr() const noexcept { return ora::is_cr(xType); }
+
+        static constexpr auto sz_KdoHead = 16;
+        static Result<KdoHead> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO IRP Body - Insert Row Piece - Opcode: 0x02 (Redo), 0x23 (Undo)
     struct KdoIrpBody {
         uint8_t fb;        //  Flag byte
         uint8_t lb;        //  Lock byte
@@ -252,9 +235,179 @@ namespace ora {
 
         std::string fb_string() const { return FB_string(fb); }
 
+        static Result<KdoIrpBody> decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    [[nodiscard]] inline Result<KdoIrpBody> decode_kdo_irp_body(tcb::span<const char> buf, bool isLittle) {
+    /// KDO DRP Body - Delete Row Piece (4 bytes) - Opcode: 0x03 (Redo), 0x22 (Undo)
+    struct KdoDrpBody {
+        uint16_t slot;
+        uint16_t tabn;
+
+        static Result<KdoDrpBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO LKR Body - Lock Row Piece (4 bytes) - Opcode: 0x04 (Redo), 0x24 (Undo)
+    struct KdoLkrBody {
+        uint16_t slot; //
+        uint8_t tabn;  // unknown in AFC
+        uint8_t to;    // lock in AFC
+        static Result<KdoLkrBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO URP Body - Update Row Piece - Opcode: 0x05 (Redo), 0x25 (Undo)
+    struct KdoUrpBody {
+        uint8_t fb;          //  Flag byte
+        uint8_t lock_byte;   //  Lock byte
+        uint8_t ckix;        //  ckix ?
+        uint8_t tabn;        //  Table number
+        uint16_t slot;       //  Slot
+        uint8_t ncol;        //  Total column count in row
+        uint8_t nnew;        //  Updated column count in row
+        uint16_t size;       //
+
+        std::vector<bool> nulls;
+        static Result<KdoUrpBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO ORP Body - Overwrite Row Piece - Opcode: 0x06 (Redo), 0x26 (Undo)
+    struct KdoOrpBody {
+        uint8_t fb;        // flag byte
+        uint8_t lb;        // lock byte
+        uint8_t cc;        // column count
+        uint8_t cki;       // fb.C
+        uint32_t dba2;     // dba2  ---- not in OLR
+        uint32_t nridBdba; // !fb.L
+        uint32_t nridSlot; // !fb.L
+        uint16_t size;     // sizeDelta
+        uint16_t slot;     // slot
+        uint8_t tabn;      //
+
+        std::vector<bool> nulls;
+        std::string fb_string() const { return FB_string(fb); }
+        static Result<KdoOrpBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO MFC Body - Manipulate First Column * - Opcode: 0x07 (Redo), 0x27 (Undo)
+    struct KdoMfcBody {
+        uint16_t slot;           //  slot
+        uint8_t manipulate_code; //  manipulate code --- not sure
+
+        static Result<KdoMfcBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO CFA Body - Change Forwarding Address - Opcode: 0x08 (Redo), 0x28 (Undo)
+    struct KdoCfaBody {
+        uint32_t nridBdba; //
+        uint16_t nridSlot; //
+        uint16_t slot;     //
+        uint16_t flag;     //
+        uint8_t tabn;      //
+        uint8_t lock;      //
+        static Result<KdoCfaBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO QMI/D Body - Quick Multi Insert/Delete - Opcode: 0x0B, 0x2B, 0x0C, 0x2C
+    struct KdoQmBody {
+        uint8_t tabn;                //
+        uint8_t lock;                //
+        uint8_t nrow;                //
+        std::vector<uint16_t> slots; // QMD --> slots-Delta
+        // see:: Ch_Qmi ::: QMI --> N1 (rowSizes) --> N2 (cols/Delta; dumpCols)
+
+        static Result<KdoQmBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO Lmn Body - Logminer Operations - Opcode: 0x10 (Redo), 0x30 (Undo)
+    struct KdoLmnBody { // todo :::
+        tcb::span<const char> data;
+
+        static Result<KdoLmnBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO Skl Body - Set Key links - Opcode: 0x0a (Redo), 0x2a (Undo)
+    struct KdoSklBody {
+        uint32_t fwd;
+        uint16_t fwdPos;
+        uint32_t bkw;
+        uint16_t bkwPos;
+        uint8_t fl;
+        uint8_t lock;
+        uint8_t slot;           // todo :: wrong position in OLR 11 ??
+
+        // fl & 0x01 != 0 ? 'F' : '-'; // fwdFl
+        // fl & 0x02 != 0 ? 'B' : '-'; // bkwFl
+        static Result<KdoSklBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO Dsc Body - Opcode: 0x0e (Redo), 0x2e (Undo)
+    struct KdoDscBody {
+        uint16_t slot;
+        uint8_t tabn;
+        uint8_t rel; // piece relative col. number
+        static Result<KdoDscBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// KDO Cki Body - Change Cluster key Index - Opcode: 0x09(Redo)
+    struct KdoCkiBody {
+        uint8_t fwd[4];
+        uint8_t bkw[4];
+        uint16_t fwd_dec;
+        uint16_t bkw_dec;
+        uint8_t slot;               // todo :: may wrong position in OLR
+        uint8_t flag;
+        uint8_t lock;
+
+        // fl & 0x01 != 0 ? 'F' : '-'; // fwdFl
+        // fl & 0x02 != 0 ? 'B' : '-'; // bkwFl
+
+        static Result<KdoCkiBody> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /** KDO fallback */
+    struct KdoRawBody {
+        tcb::span<const char> data;
+    };
+
+    // ----------------------------------------------------------------------------------------------------
+    using KdoBody = std::variant<KdoIrpBody, // 0x02, 0x23 (Single Insert) -- ??
+                                 KdoDrpBody, // 0x03, 0x22 (Single Delete) -- ??
+                                 KdoLkrBody, // 0x04 (Lock Row)
+                                 KdoUrpBody, // 0x05 (Single Update)
+                                 KdoOrpBody, // 0x06 (Overwrite Row)
+                                 KdoMfcBody, // 0x07 (Manipulate First Column)
+                                 KdoCfaBody, // 0x08 (Change Forwarding Address)
+                                 KdoCkiBody, // 0x09 (Change Cluster key Index)
+                                 KdoSklBody, // 0x0A (Set key link)
+                                 KdoQmBody,  // 0x0B/0x0C (QMI, QMD)
+                                 KdoDscBody, // 0x0E
+                                 KdoLmnBody, // 0x10, 0x30 (LogMiner)
+                                 KdoRawBody  // fallback
+                                 >;
+
+    /// Kdo
+    struct KdoVector {
+        KdoHead head;
+        KdoBody body;
+
+        static Result<KdoVector> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    // ====================================================================================================
+    /// 16 byte
+    inline Result<KdoHead> KdoHead::decode(tcb::span<const char> buf, bool isLittle) {
+        if (auto sz = sizeof(KdoHead); buf.size() < sz) {
+            return err_of(fmt::format("[KdoHead] buf-size ({}) < {}", buf.size(), sz));
+        }
+        return KdoHead{.bdab   = decode_At<uint32_t>(buf, isLittle, 0),
+                       .hdba   = decode_At<uint32_t>(buf, isLittle, 4),
+                       .max_fr = decode_At<uint16_t>(buf, isLittle, 8),
+                       .op     = decode_At<uint8_t >(buf, isLittle, 10),
+                       .xType  = decode_At<uint8_t >(buf, isLittle, 11),
+                       .itli   = decode_At<uint8_t >(buf, isLittle, 12),
+                       .ispac  = decode_At<uint8_t >(buf, isLittle, 13) };
+    }
+
+    inline Result<KdoIrpBody> KdoIrpBody::decode(tcb::span<const char> buf, bool isLittle) {
         constexpr auto sz_IrpBody = 32;
 
         if ( buf.size() < sz_IrpBody) {
@@ -285,18 +438,7 @@ namespace ora {
         return out;
     }
 
-    /** KDO DRP Body - Delete Row Piece (4 bytes)
-     *
-     * - Opcode: 0x03 (Redo), 0x22 (Undo)
-     * - Delete :: KdoDrp == KdoHead + KdoDrpBody
-     */
-    struct KdoDrpBody {
-        uint16_t slot;
-        uint16_t tabn;
-    };
-
-
-    [[nodiscard]] inline Result<KdoDrpBody> decode_kdo_drp_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoDrpBody> KdoDrpBody::decode(tcb::span<const char> buf, bool isLittle) {
         constexpr auto sz_DrpBody = 4;
         if ( buf.size() < sz_DrpBody) {
             return err_of(fmt::format("[DrpBody] buf({}) < {}", buf.size(), sz_DrpBody));
@@ -306,18 +448,7 @@ namespace ora {
             .tabn = decode_At<uint16_t>(buf, isLittle, 2)};
     }
 
-    /** KDO LKR Body - Lock Row Piece (4 bytes)
-     *
-     * - Opcode: 0x04 (Redo), 0x24 (Undo)
-     * - Lock :: KdoLkr == KdoHead + KdoLkrBody
-     */
-    struct KdoLkrBody {
-        uint16_t slot; //
-        uint8_t tabn;  // unknown in AFC
-        uint8_t to;    // lock in AFC
-    };
-
-    [[nodiscard]] inline Result<KdoLkrBody> decode_kdo_lkr_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoLkrBody> KdoLkrBody::decode(tcb::span<const char> buf, bool isLittle) {
         constexpr auto sz_LkrBody = 4;
         if (buf.size() < sz_LkrBody) {
             return err_of(fmt::format("[LkrBody] buf({}) < {}", buf.size(), sz_LkrBody));
@@ -330,25 +461,7 @@ namespace ora {
         };
     }
 
-    /** KDO URP Body - Update Row Piece
-     *
-     * - Opcode: 0x05 (Redo), 0x25 (Undo)
-     * - Update :: KdoUrp == KdoHead + KdoUrpBody
-     */
-    struct KdoUrpBody {
-        uint8_t fb;          //  Flag byte
-        uint8_t lock_byte;   //  Lock byte
-        uint8_t ckix;        //  ckix ?
-        uint8_t tabn;        //  Table number
-        uint16_t slot;       //  Slot
-        uint8_t ncol;        //  Total column count in row
-        uint8_t nnew;        //  Updated column count in row
-        uint16_t size;       //
-
-        std::vector<bool> nulls;
-    };
-
-    [[nodiscard]] inline Result<KdoUrpBody> decode_kdo_urp_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoUrpBody> KdoUrpBody::decode(tcb::span<const char> buf, bool isLittle) {
 
         constexpr auto sz_UrpBody = 10;
         if ( buf.size() < sz_UrpBody) {
@@ -369,27 +482,8 @@ namespace ora {
         return out;
     }
 
-    /** KDO ORP Body - Overwrite Row Piece
-     * - Opcode: 0x06 (Redo), 0x26 (Undo)
-     * - Overwrite :: KdoOrp == KdoHead + KdoOrpBody
-     */
-    struct KdoOrpBody {
-        uint8_t fb;        // flag byte
-        uint8_t lb;        // lock byte
-        uint8_t cc;        // column count
-        uint8_t cki;       // fb.C
-        uint32_t dba2;     // dba2  ---- not in OLR
-        uint32_t nridBdba; // !fb.L
-        uint32_t nridSlot; // !fb.L
-        uint16_t size;     // sizeDelta
-        uint16_t slot;     // slot
-        uint8_t tabn;      //
+    inline Result<KdoOrpBody> KdoOrpBody::decode(tcb::span<const char> buf, bool isLittle) {
 
-        std::vector<bool> nulls;
-        std::string fb_string() const { return FB_string(fb); }
-    };
-
-    [[nodiscard]] inline Result<KdoOrpBody> decode_kdo_orp_body(tcb::span<const char> buf, bool isLittle) {
         constexpr auto sz_OrpBody = 32;
         if ( buf.size() < sz_OrpBody) {
             return err_of(fmt::format("[OrpBody] buf({}) < {}", buf.size(), sz_OrpBody));
@@ -416,16 +510,7 @@ namespace ora {
         return out;
     }
 
-    /** KDO MFC Body - Manipulate First Column
-     * - Opcode: 0x07 (Redo), 0x27 (Undo)
-     * - Manipulate first col :: KdoMfc == KdoHead + KdoMfcBody
-     */
-    struct KdoMfcBody {
-        uint16_t slot;           //  slot
-        uint8_t manipulate_code; //  manipulate code --- not sure
-    };
-
-    [[nodiscard]] inline Result<KdoMfcBody> decode_kdo_mfc_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoMfcBody> KdoMfcBody::decode(tcb::span<const char> buf, bool isLittle) {
         constexpr auto sz_MfcBody = 4;
         if ( buf.size() < sz_MfcBody) {
             return err_of(fmt::format("[KdoMfcBody] buf({}) < {}", buf.size(), sz_MfcBody));
@@ -437,20 +522,7 @@ namespace ora {
         return out;
     }
 
-    /** KDO CFA Body - Change Forwarding Address
-     * - Opcode: 0x08 (Redo), 0x28 (Undo)
-     * - Change Forward Address :: KdoCfa == KdoHead + KdoCfaBody
-     */
-    struct KdoCfaBody {
-        uint32_t nridBdba; //
-        uint16_t nridSlot; //
-        uint16_t slot;     //
-        uint16_t flag;     //
-        uint8_t tabn;      //
-        uint8_t lock;      //
-    };
-
-    [[nodiscard]] inline Result<KdoCfaBody> decode_kdo_cfa_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoCfaBody> KdoCfaBody::decode(tcb::span<const char> buf, bool isLittle) {
         constexpr auto sz_CfaBody = 16;
 
         if ( buf.size() < sz_CfaBody) {
@@ -463,23 +535,10 @@ namespace ora {
                        .tabn     = decode_At<uint8_t >(buf, isLittle, 11),
                        .lock     = decode_At<uint8_t  >(buf, isLittle, 12)
         };
-
         return out;
     }
 
-    /** KDO QMI Body - Quick Multi Insert/Delete
-     * - Opcode: 0x0B, 0x2B, 0x0C, 0x2C
-     * - Quick Multi Insert/Delete :: KdoQmi == KdoHead + KdoQmBody
-     */
-    struct KdoQmBody {
-        uint8_t tabn;                //
-        uint8_t lock;                //
-        uint8_t nrow;                //
-        std::vector<uint16_t> slots; // QMD --> slots-Delta
-                                     // see:: Ch_Qmi ::: QMI --> N1 (rowSizes) --> N2 (cols/Delta; dumpCols)
-    };
-
-    [[nodiscard]] inline Result<KdoQmBody> decode_kdo_qm_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoQmBody> KdoQmBody::decode(tcb::span<const char> buf, bool isLittle) {
 
         if (buf.size() < 8)
             return err_of(fmt::format("[QmBody] buf({}) < 4", buf.size()));
@@ -500,35 +559,11 @@ namespace ora {
         return out;
     }
 
-    // ----------------------------------------------------------------------------------------------------
-    /** KDO Lmn Body - Logminer Operations
-     * - Opcode: 0x10 (Redo), 0x30 (Undo)
-     */
-    struct KdoLmnBody { // todo :::
-        tcb::span<const char> data;
-    };
-    [[nodiscard]] inline Result<KdoLmnBody> decode_kdo_lmn_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoLmnBody> KdoLmnBody::decode(tcb::span<const char> buf, bool isLittle) {
         return KdoLmnBody{buf};
     }
 
-    // ----------------------------------------------------------------------------------------------------
-    /** KDO Skl Body - Set Key links
-     * - Opcode: 0x0a (Redo), 0x2a (Undo)
-     */
-    struct KdoSklBody {
-        uint32_t fwd;
-        uint16_t fwdPos;
-        uint32_t bkw;
-        uint16_t bkwPos;
-        uint8_t fl;
-        uint8_t lock;
-        uint8_t slot;           // todo :: wrong position in OLR 11 ??
-
-        // fl & 0x01 != 0 ? 'F' : '-'; // fwdFl
-        // fl & 0x02 != 0 ? 'B' : '-'; // bkwFl
-    };
-
-    [[nodiscard]] inline Result<KdoSklBody> decode_kdo_skl_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoSklBody> KdoSklBody::decode(tcb::span<const char> buf, bool isLittle) {
 
         if (buf.size() < 14)
             return err_of(fmt::format("[KdoSklBody] buf ({}) < 14", buf.size()));
@@ -542,18 +577,8 @@ namespace ora {
                           .slot   = decode_At<uint8_t >(buf, isLittle, 14)
         };
     }
-    // ----------------------------------------------------------------------------------------------------
 
-    /** KDO Dsc Body
-     * - Opcode: 0x0e (Redo), 0x2e (Undo)
-     */
-    struct KdoDscBody {
-        uint16_t slot;
-        uint8_t tabn;
-        uint8_t rel; // piece relative col. number
-    };
-
-    [[nodiscard]] inline Result<KdoDscBody> decode_kdo_dsc_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoDscBody> KdoDscBody::decode(tcb::span<const char> buf, bool isLittle) {
 
         if (buf.size() < 4)
             return err_of(fmt::format("[KdoSklBody] buf ({}) < 4", buf.size()));
@@ -565,29 +590,12 @@ namespace ora {
         };
     }
 
-    // ----------------------------------------------------------------------------------------------------
-    /** KDO Dsc Body
-     * - Opcode: 0x0e (Redo), 0x2e (Undo)
-     */
-    struct KdoCkiBody {
-        uint8_t fwd[4];
-        uint8_t bkw[4];
-        uint16_t fwd_dec;
-        uint16_t bkw_dec;
-        uint8_t slot;               // todo :: may wrong position in OLR
-        uint8_t flag;
-        uint8_t lock;
-
-        // fl & 0x01 != 0 ? 'F' : '-'; // fwdFl
-        // fl & 0x02 != 0 ? 'B' : '-'; // bkwFl
-    };
-
     /// see : https://github.com/bersler/OpenLogReplicator/blob/6bc92bc1b89255fbc491e3080cb12a4c1dd8e832/src/parser/OpCode.h#L1717
     /// - todo :: may wrong decode offset
-    [[nodiscard]] inline Result<KdoCkiBody> decode_kdo_cki_body(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdoCkiBody> KdoCkiBody::decode(tcb::span<const char> buf, bool isLittle) {
 
         if (buf.size() < 14)
-            return err_of(fmt::format("[KdoSklBody] buf ({}) < 14", buf.size()));
+            return err_of(fmt::format("[KdoCkiBody] buf ({}) < 14", buf.size()));
 
         auto out = KdoCkiBody{
             .slot = decode_At<uint8_t>(buf, isLittle, 14),  // todo :: may wrong position in OLR
@@ -608,39 +616,55 @@ namespace ora {
         return out;
     }
 
+    inline Result<KdoVector> KdoVector::decode(tcb::span<const char> buf, bool isLittle) {
 
-    // ----------------------------------------------------------------------------------------------------
-    struct KdoRawBody {
-        tcb::span<const char> data;
+        auto head = KdoHead::decode(buf, isLittle);
+        if (!head) return tl::make_unexpected(head.error());
+
+        KdoVector out{.head = *head};
+
+        auto rest = buf.subspan(KdoHead::sz_KdoHead);
+
+        using Decoder = std::function<Result<KdoBody>(tcb::span<const char>, bool)>;
+
+        static const std::unordered_map<KdoType, Decoder> decoders = {
+            {KdoType::Irp, KdoIrpBody::decode}, {KdoType::Drp, KdoDrpBody::decode},
+            {KdoType::Lkr, KdoLkrBody::decode}, {KdoType::Urp, KdoUrpBody::decode},
+            {KdoType::Orp, KdoOrpBody::decode}, {KdoType::Mfc, KdoMfcBody::decode},
+            {KdoType::Cfa, KdoCfaBody::decode}, {KdoType::Cki, KdoCkiBody::decode},
+            {KdoType::Skl, KdoSklBody::decode}, {KdoType::Qmi, KdoQmBody::decode},
+            {KdoType::Qmd, KdoQmBody::decode},  {KdoType::Dsc, KdoDscBody::decode},
+            {KdoType::Lmn, KdoLmnBody::decode},
     };
 
-    // ----------------------------------------------------------------------------------------------------
-    using KdoBody = std::variant<KdoIrpBody, // 0x02, 0x23 (Single Insert) -- ??
-                                 KdoDrpBody, // 0x03, 0x22 (Single Delete) -- ??
-                                 KdoLkrBody, // 0x04 (Lock Row)
-                                 KdoUrpBody, // 0x05 (Single Update)
-                                 KdoOrpBody, // 0x06 (Overwrite Row)
-                                 KdoMfcBody, // 0x07 (Manipulate First Column)
-                                 KdoCfaBody, // 0x08 (Change Forwarding Address)
-                                 KdoCkiBody, // 0x09 (Change Cluster key Index)
-                                 KdoSklBody, // 0x0A (Set key link)
-                                 KdoQmBody,  // 0x0B/0x0C (QMI, QMD)
-                                 KdoDscBody, // 0x0E (Set key link)
-                                 KdoLmnBody, // 0x10, 0x30 (LogMiner)
-                                 KdoRawBody  // fallback
-                                 >;
+        auto kdoType = get_kdoType(head->op);
 
+        auto it = decoders.find(kdoType);
+        if (it != decoders.end()) {
+            auto body = it->second(rest, isLittle);
+            if (!body)
+                return tl::make_unexpected(body.error());
+
+            out.body = *body;
+        } else {
+            out.body = KdoRawBody{rest};
+        }
+
+        return out;
+    }
+
+    // ----------------------------------------------------------------------------------------------------
     using std::holds_alternative;
-    inline constexpr bool is_irp(const KdoBody &b) noexcept { return holds_alternative<KdoIrpBody>(b); }
-    inline constexpr bool is_drp(const KdoBody &b) noexcept { return holds_alternative<KdoDrpBody>(b); }
-    inline constexpr bool is_lkr(const KdoBody &b) noexcept { return holds_alternative<KdoLkrBody>(b); }
-    inline constexpr bool is_urp(const KdoBody &b) noexcept { return holds_alternative<KdoUrpBody>(b); }
-    inline constexpr bool is_orp(const KdoBody &b) noexcept { return holds_alternative<KdoOrpBody>(b); }
-    inline constexpr bool is_mfc(const KdoBody &b) noexcept { return holds_alternative<KdoMfcBody>(b); }
-    inline constexpr bool is_cfa(const KdoBody &b) noexcept { return holds_alternative<KdoCfaBody>(b); }
-    inline constexpr bool is_qm(const KdoBody &b) noexcept { return holds_alternative<KdoQmBody>(b); }
-    inline constexpr bool is_lwn(const KdoBody &b) noexcept { return holds_alternative<KdoLmnBody>(b); }
-    inline constexpr bool is_raw(const KdoBody &b) noexcept { return holds_alternative<KdoRawBody>(b); }
+    static constexpr bool is_irp(const KdoBody &b) noexcept { return holds_alternative<KdoIrpBody>(b); }
+    static constexpr bool is_drp(const KdoBody &b) noexcept { return holds_alternative<KdoDrpBody>(b); }
+    static constexpr bool is_lkr(const KdoBody &b) noexcept { return holds_alternative<KdoLkrBody>(b); }
+    static constexpr bool is_urp(const KdoBody &b) noexcept { return holds_alternative<KdoUrpBody>(b); }
+    static constexpr bool is_orp(const KdoBody &b) noexcept { return holds_alternative<KdoOrpBody>(b); }
+    static constexpr bool is_mfc(const KdoBody &b) noexcept { return holds_alternative<KdoMfcBody>(b); }
+    static constexpr bool is_cfa(const KdoBody &b) noexcept { return holds_alternative<KdoCfaBody>(b); }
+    static constexpr bool is_qm(const KdoBody &b) noexcept { return holds_alternative<KdoQmBody>(b); }
+    static constexpr bool is_lwn(const KdoBody &b) noexcept { return holds_alternative<KdoLmnBody>(b); }
+    static constexpr bool is_raw(const KdoBody &b) noexcept { return holds_alternative<KdoRawBody>(b); }
 
     [[nodiscard]] inline uint8_t get_cc(const KdoBody &body) noexcept {
 
@@ -681,11 +705,6 @@ namespace ora {
                 body);
     }
     // ----------------------------------------------------------------------------------------------------
-    /// Kdo
-    struct KdoVector {
-        KdoHead head;
-        KdoBody body;
-    };
 
     [[nodiscard]] static constexpr bool is_mfc(const KdoVector &kdo) noexcept { return is_mfc(kdo.body); }
     [[nodiscard]] static constexpr bool is_irp(const KdoVector &kdo) noexcept { return is_irp(kdo.body); }
@@ -694,46 +713,93 @@ namespace ora {
     [[nodiscard]] static constexpr bool is_orp(const KdoVector &kdo) noexcept { return is_orp(kdo.body); }
     [[nodiscard]] static constexpr bool is_lkr(const KdoVector &kdo) noexcept { return is_lkr(kdo.body); }
 
-    [[nodiscard]] inline Result<KdoVector> decode_kdo(tcb::span<const char> buf, bool isLittle) {
+    // ----------------------------------------------------------------------------------------------------
 
-        auto head = decode_kdo_head(buf, isLittle);
-        if (!head)
-            return tl::make_unexpected(head.error());
-
-        KdoVector out{.head = *head};
-
-        auto rest = buf.subspan(sz_KdoHead);
-
-        using Decoder = std::function<Result<KdoBody>(tcb::span<const char>, bool)>;
-
-        static const std::unordered_map<KdoType, Decoder> decoders = {
-                {KdoType::Irp, decode_kdo_irp_body}, {KdoType::Drp, decode_kdo_drp_body},
-                {KdoType::Lkr, decode_kdo_lkr_body}, {KdoType::Urp, decode_kdo_urp_body},
-                {KdoType::Orp, decode_kdo_orp_body}, {KdoType::Mfc, decode_kdo_mfc_body},
-                {KdoType::Cfa, decode_kdo_cfa_body}, {KdoType::Cki, decode_kdo_cki_body},
-                {KdoType::Skl, decode_kdo_skl_body}, {KdoType::Qmi, decode_kdo_qm_body},
-                {KdoType::Qmd, decode_kdo_qm_body},  {KdoType::Dsc, decode_kdo_dsc_body},
-                {KdoType::Lmn, decode_kdo_lmn_body},
-        };
-
-        auto kdoType = get_kdoType(head->op);
-
-        auto it = decoders.find(kdoType);
-        if (it != decoders.end()) {
-            auto body = it->second(rest, isLittle);
-            if (!body)
-                return tl::make_unexpected(body.error());
-
-            out.body = *body;
-        } else {
-            out.body = KdoRawBody{rest};
-        }
-
-        return out;
+    inline std::string to_string(const KdoHead &h) {
+        return fmt::format(
+            "DoH {{bdab: 0x{:08x}, hdba: 0x{:08x}, max_fr: {}, op: 0x{:02x}, xType: 0x{:02x}, itli: {}, ispac: {}}}",
+            h.bdab, h.hdba, h.max_fr, h.op, h.xType, h.itli, h.ispac
+        );
     }
 
+    inline std::string to_string(const KdoIrpBody &b) {
+        return fmt::format(
+            "Irp {{fb: 0x{:02x} ({}), lb: {}, cc: {}, cki: {}, hdba: 0x{:08x}, hslot: {}, nridBdba: 0x{:08x}, nridSlot: {}, size: {}, slot: {}, tabn: {}}}",
+            b.fb, b.fb_string(), b.lb, b.cc, b.cki, b.hdba, b.hslot, b.nridBdba, b.nridSlot, b.size, b.slot, b.tabn
+        );
+    }
 
-    static std::string to_string(const KdoVector &kdo) {
-        return "";
+    inline std::string to_string(const KdoDrpBody &b) {
+        return fmt::format("Drp {{slot: {}, tabn: {}}}", b.slot, b.tabn);
+    }
+
+    inline std::string to_string(const KdoLkrBody &b) {
+        return fmt::format("Lkr {{slot: {}, tabn: {}, to: {}}}", b.slot, b.tabn, b.to);
+    }
+
+    inline std::string to_string(const KdoUrpBody &b) {
+        return fmt::format(
+            "Urp {{fb: 0x{:02x}, lb: {}, ckix: {}, tabn: {}, slot: {}, ncol: {}, nnew: {}, size: {}}}",
+            b.fb, b.lock_byte, b.ckix, b.tabn, b.slot, b.ncol, b.nnew, b.size
+        );
+    }
+
+    inline std::string to_string(const KdoOrpBody &b) {
+        return fmt::format(
+            "Orp {{fb: 0x{:02x} ({}), lb: {}, cc: {}, cki: {}, dba2: 0x{:08x}, nridBdba: 0x{:08x}, nridSlot: {}, size: {}, slot: {}, tabn: {}}}",
+            b.fb, b.fb_string(), b.lb, b.cc, b.cki, b.dba2, b.nridBdba, b.nridSlot, b.size, b.slot, b.tabn
+        );
+    }
+
+    inline std::string to_string(const KdoMfcBody &b) {
+        return fmt::format("Mfc {{slot: {}, manipulate_code: 0x{:02x}}}", b.slot, b.manipulate_code);
+    }
+
+    inline std::string to_string(const KdoCfaBody &b) {
+        return fmt::format(
+            "Cfa {{nridBdba: 0x{:08x}, nridSlot: {}, slot: {}, flag: 0x{:04x}, tabn: {}, lock: {}}}",
+            b.nridBdba, b.nridSlot, b.slot, b.flag, b.tabn, b.lock
+        );
+    }
+
+    inline std::string to_string(const KdoCkiBody &b) {
+        return fmt::format(
+            "Cki {{fwd_dec: {}, bkw_dec: {}, slot: {}, flag: 0x{:02x}, lock: {}}}",
+            b.fwd_dec, b.bkw_dec, b.slot, b.flag, b.lock
+        );
+    }
+
+    inline std::string to_string(const KdoSklBody &b) {
+        return fmt::format(
+            "Skl {{fwd: 0x{:08x}, fwdPos: {}, bkw: 0x{:08x}, bkwPos: {}, fl: 0x{:02x}, lock: {}, slot: {}}}",
+            b.fwd, b.fwdPos, b.bkw, b.bkwPos, b.fl, b.lock, b.slot
+        );
+    }
+
+    inline std::string to_string(const KdoQmBody &b) {
+        return fmt::format(
+            "Qm {{tabn: {}, lock: {}, nrow: {}, slots_count: {}}}",
+            b.tabn, b.lock, b.nrow, b.slots.size()
+        );
+    }
+
+    inline std::string to_string(const KdoDscBody &b) {
+        return fmt::format("Dsc {{slot: {}, tabn: {}, rel: {}}}", b.slot, b.tabn, b.rel);
+    }
+
+    inline std::string to_string(const KdoLmnBody &b) {
+        return fmt::format("Lmn {{data_size: {}}}", b.data.size());
+    }
+
+    inline std::string to_string(const KdoRawBody &b) {
+        return fmt::format("Raw {{data_size: {}}}", b.data.size());
+    }
+
+    inline std::string to_string(const KdoBody &body) {
+        return std::visit([](const auto &b) { return to_string(b); }, body);
+    }
+
+    inline std::string to_string(const KdoVector &v) {
+        return fmt::format("  KDO {{\n    {},\n    {}\n  }}", to_string(v.head), to_string(v.body));
     }
 }

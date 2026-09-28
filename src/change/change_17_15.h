@@ -20,6 +20,7 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     inline std::string to_string(Change_1715 &c) {
-        return fmt::format("Change_1715");
+        return fmt::format("Ch 17.15: Heart-beat");
+
     }
 }

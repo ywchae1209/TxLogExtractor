@@ -16,12 +16,19 @@ namespace ora {
 
         uint64_t to_int64() const { return (static_cast<uint64_t>(wrap) << 32) | static_cast<uint64_t>(base); }
     };
+    inline std::string to_string(const Ktb_scn6& scn) {
+        return fmt::format("wrap: {}, base: {}", scn.wrap, scn.base);
+    }
+    static_assert(sizeof(Ktb_scn6) == 6, "Ktb_scn6 size mismatch");
 
     struct Ktb_xid8 {
         uint16_t usn; // (2 bytes, offset 0) Transaction ID undo segment number
         uint16_t slt; // (2 bytes, offset 2) Transaction ID slot
         uint32_t sqn; // (4 bytes, offset 4) Transaction ID sequence number
     };
+    inline std::string to_string(const Ktb_xid8& xid) {
+        return fmt::format("usn: {}, slt: {}, sqn: {}", xid.usn, xid.slt, xid.sqn);
+    }
     static_assert(sizeof(Ktb_xid8) == 8, "Ktb_xid8 size mismatch");
 
     struct Ktb_uba7 {
@@ -29,6 +36,12 @@ namespace ora {
         uint16_t sqn;
         uint8_t rec;
     };
+
+    inline std::string to_string(const Ktb_uba7& uba) {
+        return fmt::format("dba: {}, sqn: {}, rec: {}", uba.dba, uba.sqn, uba.rec);
+    }
+
+
     static_assert(sizeof(Ktb_uba7) == 7, "Ktb_uba7 size mismatch");
 
     struct Ktb_ItlEntry {
@@ -131,9 +144,8 @@ namespace ora {
         return Ktb_ItlEntry{
             .xid       = decode_ktb_xid8<   IsLittle>(b, sp),
             .uba       = decode_ktb_uba7<   IsLittle>(b, sp + 8),
-            .pad       = decode_at<uint8_t ,IsLittle>(b, sp + 15),
             .flags_lck = decode_at<uint16_t,IsLittle>(b, sp + 16),
-            .scn_fsc   = decode_ktb_scn6<   IsLittle>(b, sp + 24),
+            .scn_fsc   = decode_ktb_scn6<   IsLittle>(b, sp + 18),
         };
 
     }

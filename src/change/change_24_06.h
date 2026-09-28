@@ -64,7 +64,7 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     static std::string to_string(const Ktdlr& a) {
-        return fmt::format("Ktdlr: "
+        return fmt::format("DLR: "
                            "objn: {} objv: {} dlrflags: 0x{:04x} "
                            "xid: 0x{:x}.0x{:x}.{}",
                            a.objn, a.objv, a.dlrflags,
@@ -72,7 +72,7 @@ namespace ora {
     }
 
     static std::string to_string(const Change_2406& a) {
-        return fmt::format("Ch 24.6: {}", to_string(a.dlr));
+        return fmt::format("Ch 24.6:\n  {}", to_string(a.dlr));
     }
 
 

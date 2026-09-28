@@ -47,26 +47,7 @@ namespace ora {
         uint32_t dba{0};   // Data Block Address
     };
 
-    [[nodiscard]] inline Result<KdliHead> decode_kdli_head(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < 12) {
-            return err_of(fmt::format("[KdliCommon] buf size {} < 12", buf.size()));
-        }
-        return KdliHead {
-            .opc  = decode_At<uint8_t >(buf, isLittle, 0),
-            .type = decode_At<uint8_t >(buf, isLittle, 1),
-            .flg0 = decode_At<uint8_t >(buf, isLittle, 2),
-            .flg1 = decode_At<uint8_t >(buf, isLittle, 3),
-            .psiz = decode_At<uint16_t>(buf, isLittle, 4),
-            .poff = decode_At<uint16_t>(buf, isLittle, 6),
-            .dba  = decode_At<uint32_t>(buf, isLittle, 8)
-        };
-    }
-
-    // ====================================================================================================
-    // Sub-Element 엔티티 항목 (Map Entry 구조체)
-    // ====================================================================================================
-
-    // LMAP / ALMAP / IMAP 공통 8Byte 맵 엔트리
+    // LMAP / ALMAP / IMAP -- 8Byte entry
     struct KdliMapEntry {
         uint8_t  num1{0};
         uint8_t  num2{0};
@@ -74,7 +55,7 @@ namespace ora {
         uint32_t dba{0};
     };
 
-    // LMAPX 16Byte 맵 엔트리
+    // LMAPX -- 16Byte entry
     struct KdliMapxEntry {
         uint8_t  num1{0};
         uint8_t  num2{0};
@@ -210,8 +191,22 @@ namespace ora {
     >;
 
     // ====================================================================================================
+    [[nodiscard]] inline Result<KdliHead> decode_kdli_head(tcb::span<const char> buf, bool isLittle) {
+        if (buf.size() < 12) {
+            return err_of(fmt::format("[KdliCommon] buf size {} < 12", buf.size()));
+        }
+        return KdliHead {
+            .opc  = decode_At<uint8_t >(buf, isLittle, 0),
+            .type = decode_At<uint8_t >(buf, isLittle, 1),
+            .flg0 = decode_At<uint8_t >(buf, isLittle, 2),
+            .flg1 = decode_At<uint8_t >(buf, isLittle, 3),
+            .psiz = decode_At<uint16_t>(buf, isLittle, 4),
+            .poff = decode_At<uint16_t>(buf, isLittle, 6),
+            .dba  = decode_At<uint32_t>(buf, isLittle, 8)
+        };
+    }
 
-    [[nodiscard]] inline Result<KdliInfo> decode_kdli_info(tcb::span<const char> buf, bool /*isLittle*/) {
+    [[nodiscard]] inline Result<KdliInfo> decode_kdli_info(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 17) return err_of("[KdliInfo] size < 17");
         KdliInfo out;
         std::memcpy(out.lob_id.data(), buf.data() + 1, 10);
@@ -460,6 +455,132 @@ namespace ora {
             default:
                 return KdliRawPayload{.code = static_cast<uint8_t>(code), .raw = vector(buf.begin(), buf.end())};
         }
+    }
+
+    // ----------------------------------------------------------------------------------------------------
+    inline std::string format_lob_id(const std::array<uint8_t, 10> &id) {
+        return fmt::format(
+            "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            id[0], id[1], id[2], id[3], id[4], id[5], id[6], id[7], id[8], id[9]
+        );
+    }
+
+    // ----------------------------------------------------------------------------------------------------
+    inline std::string to_string(const KdliHead &h) {
+        return fmt::format(
+            "KdliHead{{opc: {}, type: {}, flg0: 0x{:02x}, flg1: 0x{:02x}, psiz: {}, poff: {}, dba: 0x{:08x}}}",
+            h.opc, h.type, h.flg0, h.flg1, h.psiz, h.poff, h.dba
+        );
+    }
+
+    inline std::string to_string(const KdliMapEntry &e) {
+        return fmt::format(
+            "KdliMapEntry{{num1: {}, num2: {}, num3: {}, dba: 0x{:08x}}}",
+            e.num1, e.num2, e.num3, e.dba
+        );
+    }
+
+    inline std::string to_string(const KdliMapxEntry &e) {
+        return fmt::format(
+            "KdliMapxEntry{{num1: {}, num2: {}, num3: {}, dba: 0x{:08x}, num4: {}, num5: {}}}",
+            e.num1, e.num2, e.num3, e.dba, e.num4, e.num5
+        );
+    }
+    // ----------------------------------------------------------------------------------------------------
+
+    inline std::string to_string(const KdliInfo &i) {
+        return fmt::format(
+            "KdliInfo{{lob_id: {}, block: {}, slot: {}}}",
+            format_lob_id(i.lob_id), i.block, i.slot
+        );
+    }
+
+    inline std::string to_string(const KdliLoadData &d) {
+        return fmt::format(
+            "KdliLoadData{{lob_id: {}, flg0: 0x{:02x}, flg1: 0x{:02x}, rid_slot: {}, rid_page: 0x{:08x}, flg2: 0x{:02x}, flg3: 0x{:02x}, hwm: {}}}",
+            format_lob_id(d.lob_id), d.flg0, d.flg1, d.rid_slot, d.rid_page, d.flg2, d.flg3, d.hwm
+        );
+    }
+
+    inline std::string to_string(const KdliZero &z) {
+        return fmt::format("KdliZero{{zoff: {}, zsiz: {}}}", z.zoff, z.zsiz);
+    }
+
+    inline std::string to_string(const KdliFill &f) {
+        return fmt::format(
+            "KdliFill{{lob_offset: {}, fill_size: {}, payload_size: {}}}",
+            f.lob_offset, f.fill_size, f.payload.size()
+        );
+    }
+
+    inline std::string to_string(const KdliLmap &m) {
+        return fmt::format("KdliLmap{{asiz: {}, entries_cnt: {}}}", m.asiz, m.entries.size());
+    }
+
+    inline std::string to_string(const KdliLmapx &m) {
+        return fmt::format("KdliLmapx{{asiz: {}, entries_cnt: {}}}", m.asiz, m.entries.size());
+    }
+
+    inline std::string to_string(const KdliSuplog &s) {
+        return fmt::format(
+            "KdliSuplog{{xid_usn: {}, xid_slot: {}, xid_sqn: {}, objn: {}, col_no: {}, flag: 0x{:08x}}}",
+            s.xid_usn, s.xid_slot, s.xid_sqn, s.objn, s.col_no, s.flag
+        );
+    }
+
+    inline std::string to_string(const KdliFpload &f) {
+        return fmt::format(
+            "KdliFpload{{bsz: {}, xid_usn: {}, xid_slot: {}, xid_sqn: {}, data_obj: {}}}",
+            f.bsz, f.xid_usn, f.xid_slot, f.xid_sqn, f.data_obj
+        );
+    }
+
+    inline std::string to_string(const KdliLoadLhb &l) {
+        return fmt::format(
+            "KdliLoadLhb{{lob_id: {}, dba0: 0x{:08x}, dba1: 0x{:08x}, dba2: 0x{:08x}, dba3: 0x{:08x}}}",
+            format_lob_id(l.lob_id), l.dba0, l.dba1, l.dba2, l.dba3
+        );
+    }
+
+    inline std::string to_string(const KdliAlmap &a) {
+        return fmt::format(
+            "KdliAlmap{{nent: {}, sidx: {}, entries_cnt: {}}}",
+            a.nent, a.sidx, a.entries.size()
+        );
+    }
+
+    inline std::string to_string(const KdliLoadItree &t) {
+        return fmt::format(
+            "KdliLoadItree{{lob_id: {}, flg0: 0x{:02x}, flg1: 0x{:02x}, rid_slot: {}, rid_page: 0x{:08x}, flg2: 0x{:02x}, flg3: 0x{:02x}, lvl: {}, asiz: {}, hwm: {}, par: {}}}",
+            format_lob_id(t.lob_id), t.flg0, t.flg1, t.rid_slot, t.rid_page, t.flg2, t.flg3, t.lvl, t.asiz, t.hwm, t.par
+        );
+    }
+
+    inline std::string to_string(const KdliImap &m) {
+        return fmt::format("KdliImap{{asiz: {}, entries_cnt: {}}}", m.asiz, m.entries.size());
+    }
+
+    inline std::string to_string(const KdliRawPayload &r) {
+        return fmt::format("KdliRawPayload{{code: 0x{:02x}, raw_size: {}}}", r.code, r.raw.size());
+    }
+
+    // ----------------------------------------------------------------------------------------------------
+    inline std::string to_string(const KdliElem &elem) {
+        return std::visit([](const auto &arg) { return to_string(arg); }, elem);
+    }
+
+    inline std::string to_string(const std::vector<KdliElem> &elems) {
+        if (elems.empty()) return "[]";
+
+        std::string result = "[\n";
+        for (size_t i = 0; i < elems.size(); ++i) {
+            result += "  " + to_string(elems[i]);
+            if (i + 1 < elems.size()) {
+                result += ",\n";
+            }
+        }
+        result += "\n]";
+        return result;
     }
 
 }

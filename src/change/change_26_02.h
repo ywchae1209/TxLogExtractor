@@ -47,5 +47,7 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    // todo :: to_string
+    inline std::string to_string(Change_2602& a) {
+        return fmt::format("Ch 26.2 :\n  {}\n  {}\n  {}", to_string(a.ktb), to_string(a.head), to_string(a.elems));
+    }
 }

@@ -238,4 +238,17 @@ namespace ora {
 
         return out;
     }
+
+
+    // --------------------------------------------------------------------------------
+    inline std::string to_string(const Ktusp &s) {
+        return fmt::format(
+            "Ktusp{{type: 0x{:02x}, fb: 0x{:02x}, cc: {}, objv: {}, before: {}, after: {}, "
+            "kdo_info1: 0x{:04x}, kdo_info2: 0x{:08x}, bdba: 0x{:08x}, slot: {}}}",
+            s.type, s.fb, s.cc, s.objv, s.before, s.after,
+            s.kdo_info1, s.kdo_info2, s.bdba, s.slot
+        );
+    }
+
+
 }

@@ -51,7 +51,7 @@ namespace ora {
         Change_0511 out;
 
         // [# 1] ub
-        auto ktub = ctx.one<Ktubu>("Ch5_11:ub", [&](auto s) { return Ktubu::decode_ktub(s, ctx.isLittle, ctx.over19); });
+        auto ktub = ctx.one<Ktubu>("Ch5_11:ub", [&](auto s) { return Ktubu::decode(s, ctx.isLittle, ctx.over19); });
         if (!ktub) return tl::make_unexpected(ktub.error());
         out.ubu = std::move(*ktub);
 
@@ -64,14 +64,12 @@ namespace ora {
     }
     // --------------------------------------------------------------------------------
     static std::string to_string(const Ktubrb& a) {
-        return fmt::format("Ktubrb : "
-                           "prev dba: 0x{:08x} wrp: {} rec_flg: 0x{:04x}",
+        return fmt::format("\n  BRB : prev dba: 0x{:08x} wrp: {} rec_flg: 0x{:04x}",
                            a.prev_dba, a.wrp, a.rec_flg);
     }
 
     static std::string to_string(const Change_0511& a) {
-        return fmt::format("Ch 5.11: {}\n"
-                           "         {}",
+        return fmt::format("Ch 5.11:\n  {}{}",
                            to_string(a.ubu),
                            a.ubrb ? to_string(*a.ubrb) : "");
     }

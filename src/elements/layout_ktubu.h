@@ -57,25 +57,6 @@ namespace ora {
         static Result<Ktubu_base> decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    inline Result<Ktubu_base> Ktubu_base::decode(tcb::span<const char> buf, bool isLittle) {
-
-        if ( buf.size() < 24)
-            return err_of(fmt::format("[Ktubu:base] buf({}) < {}", buf.size(), 24));
-
-        return Ktubu_base {
-            .objn     = decode_At<uint32_t>(buf, isLittle, 0),
-            .objd     = decode_At<uint32_t>(buf, isLittle, 4),
-            .tsn      = decode_At<uint32_t>(buf, isLittle, 8),
-            .prev_dba = decode_At<uint32_t>(buf, isLittle, 12),    // previous DBA
-            .opc      = static_cast<uint16_t>((decode_At<uint8_t>(buf, isLittle, 16) << 8) |
-                                               decode_At<uint8_t>(buf, isLittle, 17)),
-            .slt      = decode_At<uint8_t >(buf, isLittle, 18),
-            .rci      = decode_At<uint8_t >(buf, isLittle, 19),
-            .flg      = decode_At<uint16_t>(buf, isLittle, 20),
-            .wrp      = decode_At<uint16_t>(buf, isLittle, 22)
-        };
-    }
-
     // --- 2. ~ 28
     struct Ktubu_ext {
         uint16_t flg2;      // Offset 24 ~ 25 : Secondary Flags
@@ -93,7 +74,7 @@ namespace ora {
         uint32_t logon_user;           // Offset 72 ~ 75 : Logon User ID
     };
 
-    // ---
+    // --------------------------------------------------------------------------------
     /// Ktubu | Ktubl
     struct Ktubu {
         Ktubu_base          header;
@@ -114,13 +95,30 @@ namespace ora {
         bool has_ubu_ext() const noexcept { return ext0.has_value(); }
         bool has_ubl_ext() const noexcept { return ext1.has_value(); }
 
-
-        static Result<Ktubu> decode_ktub(tcb::span<const char> buf, bool isLittle, bool hint);
-
+        static Result<Ktubu> decode(tcb::span<const char> buf, bool isLittle, bool hint);
     };
 
     // --------------------------------------------------------------------------------
-    inline Result<Ktubu> Ktubu::decode_ktub(tcb::span<const char> buf, bool isLittle, bool hint) {
+    inline Result<Ktubu_base> Ktubu_base::decode(tcb::span<const char> buf, bool isLittle) {
+
+        if ( buf.size() < 24)
+            return err_of(fmt::format("[Ktubu:base] buf({}) < {}", buf.size(), 24));
+
+        return Ktubu_base {
+            .objn     = decode_At<uint32_t>(buf, isLittle, 0),
+            .objd     = decode_At<uint32_t>(buf, isLittle, 4),
+            .tsn      = decode_At<uint32_t>(buf, isLittle, 8),
+            .prev_dba = decode_At<uint32_t>(buf, isLittle, 12),    // previous DBA
+            .opc      = static_cast<uint16_t>((decode_At<uint8_t>(buf, isLittle, 16) << 8) |
+                                               decode_At<uint8_t>(buf, isLittle, 17)),
+            .slt      = decode_At<uint8_t >(buf, isLittle, 18),
+            .rci      = decode_At<uint8_t >(buf, isLittle, 19),
+            .flg      = decode_At<uint16_t>(buf, isLittle, 20),
+            .wrp      = decode_At<uint16_t>(buf, isLittle, 22)
+        };
+    }
+
+    inline Result<Ktubu> Ktubu::decode(tcb::span<const char> buf, bool isLittle, bool hint) {
 
         auto base = Ktubu_base::decode(buf, isLittle);
         if (!base) return tl::make_unexpected(base.error());
@@ -160,63 +158,48 @@ namespace ora {
         };
     }
 
-    inline std::string to_string(const Ktubu &a) {
-        std::string out;
-        out.reserve(256);
+    // --------------------------------------------------------------------------------
+#include <string>
+#include <optional>
+#include <fmt/format.h>
 
-        // 1. --------------------------------------------
-        fmt::format_to(std::back_inserter(out),
-            "[{}] objn: {} objd: {} tsn: {} undo(prev_dba): 0x{:08x} opc: {}.{} slt: {} rci: {} flg: 0x{:04x} wrp: {}\n",
-            a.has_ubl_ext() ? "KTUBL" : "KTUBU",
-            a.header.objn,
-            a.header.objd,
-            a.header.tsn,
-            a.header.prev_dba,
-            a.header.opc >> 8,
-            a.header.opc & 0xFF,
-            a.header.slt,
-            a.header.rci,
-            a.header.flg,
-            a.header.wrp
+    // ----------------------------------------------------------------------------------------------------
+    // Ktubu Base & Extensions to_string
+    // ----------------------------------------------------------------------------------------------------
+
+    inline std::string to_string(const Ktubu_base &b) {
+        return fmt::format(
+            "flg: 0x{:04x}, begin_tx: {}, lastSplit: {}, userDone: {}, is_temp: {}\n",
+            b.flg, (b.flg & Ktub_Flag::BEGIN_TRANS) != 0, b.is_lastSplit(), b.is_userUndoDone(), b.is_tempObject()
         );
+    }
 
-        // 2. ------------------------------------------
-        fmt::format_to(std::back_inserter(out),
-            "  └ Flags: [BeginTrans: {} | UserUndoDone: {} | TempObj: {} | TsnUndo: {}]\n",
-            a.is_begin_trans() ? "Yes" : "No",
-            (a.header.flg & Ktub_Flag::USER_DONE) ? "Yes" : "No",
-            (a.header.flg & Ktub_Flag::TEMP_OBJECT)  ? "Yes" : "No",
-            (a.header.flg & Ktub_Flag::TS_UNDO)? "Yes" : "No"
+    inline std::string to_string(const Ktubu_ext &e) {
+        return fmt::format(
+            "flg2: 0x{:04x}, buext_idx: {}\n",
+            e.flg2, e.buext_idx
         );
+    }
 
-        // 3. ------------------------------------------
-        if (a.ext0.has_value()) {
-            const auto& e0 = *a.ext0;
-            fmt::format_to(std::back_inserter(out),
-                "  └ [Ext0] buext_idx: {} flg2: 0x{:04x}\n",
-                e0.buext_idx,
-                e0.flg2
-            );
-        }
+    inline std::string to_string(const Ktubl_ext &e) {
+        return fmt::format(
+            "prev_ctl_uba: {}, prev_ctl_max_cmt_scn: {}, prev_tx_cmt_scn: {}, tx_start_scn: {}, prev_brb: 0x{:08x}, prev_bcl: 0x{:08x}, logon_user: {}\n",
+            to_string(e.prev_ctl_uba), e.prev_ctl_max_cmt_scn, e.prev_tx_cmt_scn, e.tx_start_scn, e.prev_brb, e.prev_bcl, e.logon_user
+        );
+    }
 
-        // 4. ------------------------------------------
-        if (a.ext1.has_value()) {
-            const auto& e1 = *a.ext1;
-            fmt::format_to(std::back_inserter(out),
-                "  └ [Ext1] prev_ctl_uba: [dba:0x{:08x} sqn:{} rec:{}]\n"
-                "           prev_ctl_max_cmt_scn: {}\n"
-                "           prev_tx_cmt_scn: {}\n"
-                "           tx_start_scn: {}\n"
-                "           prev_brb: 0x{:08x} prev_bcl: 0x{:08x} logon_user: {}\n",
-                e1.prev_ctl_uba.dba, e1.prev_ctl_uba.sqn, e1.prev_ctl_uba.rec,
-                e1.prev_ctl_max_cmt_scn,
-                e1.prev_tx_cmt_scn,
-                e1.tx_start_scn,
-                e1.prev_brb,
-                e1.prev_bcl,
-                e1.logon_user
-            );
-        }
-        return out;
+    // ----------------------------------------------------------------------------------------------------
+    // Ktubu Composite Structure to_string
+    // ----------------------------------------------------------------------------------------------------
+
+    inline std::string to_string(const Ktubu &u) {
+        std::string ext0_str = u.ext0.has_value() ? "    " + to_string(u.ext0.value()) : "";
+        std::string ext1_str = u.ext1.has_value() ? "    " + to_string(u.ext1.value()) : "";
+
+        return fmt::format(
+            "UBU {{\n"
+            "    {}{}{}  }}",
+            to_string(u.header), ext0_str, ext1_str
+        );
     }
 }
