@@ -12,15 +12,15 @@ namespace ora {
 
     // from limited source.
     enum VldFlags : uint8_t {
-        KCR_void = 0x00, // Invalid
-        KCR_valid = 0x01, // Valid record
-        KCR_commit = 0x02, // Commit SCN
-        KCR_depend = 0x04, // Dependent SCN
-        KCR_newMark = 0x08, // New SCN mark
-        KCR_oldMark = 0x10, // Old SCN mark
-        KCR_gno = 0x20, // Group/Thread
+        KCR_void = 0x00,     // Invalid
+        KCR_valid = 0x01,    // Valid record
+        KCR_commit = 0x02,   // Commit SCN
+        KCR_depend = 0x04,   // Dependent SCN
+        KCR_newMark = 0x08,  // New SCN mark
+        KCR_oldMark = 0x10,  // Old SCN mark
+        KCR_gno = 0x20,      // Group/Thread
         KCR_timeWrap = 0x40, // Timewarp
-        KCR_raw = 0x80 // Raw Record
+        KCR_raw = 0x80       // Raw Record
     };
 
     [[nodiscard]] bool dependBit_on(uint8_t vld) {

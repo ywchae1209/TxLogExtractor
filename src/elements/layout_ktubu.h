@@ -10,13 +10,12 @@
 #include "../coral_result.h"
 #include "layout_common.h"
 
-// https://github.com/bersler/OpenLogReplicator/blob/6bc92bc1b89255fbc491e3080cb12a4c1dd8e832/src/parser/OpCode.h#L1783
 namespace ora {
 
     using coral::decode_at, coral::decode_At, coral::enough, coral::Result, coral::err_of;
     using std::optional, std::variant, std::monostate;
 
-    // --- (from: OpenLogReplicator) ---
+    // --- (from: OLR) ---
     namespace Ktub_Flag {
         constexpr uint16_t MBU_HEAD       = 0x0001;
         constexpr uint16_t MBU_TAIL       = 0x0002;
@@ -158,13 +157,6 @@ namespace ora {
         };
     }
 
-    // --------------------------------------------------------------------------------
-#include <string>
-#include <optional>
-#include <fmt/format.h>
-
-    // ----------------------------------------------------------------------------------------------------
-    // Ktubu Base & Extensions to_string
     // ----------------------------------------------------------------------------------------------------
 
     inline std::string to_string(const Ktubu_base &b) {
@@ -187,10 +179,6 @@ namespace ora {
             to_string(e.prev_ctl_uba), e.prev_ctl_max_cmt_scn, e.prev_tx_cmt_scn, e.tx_start_scn, e.prev_brb, e.prev_bcl, e.logon_user
         );
     }
-
-    // ----------------------------------------------------------------------------------------------------
-    // Ktubu Composite Structure to_string
-    // ----------------------------------------------------------------------------------------------------
 
     inline std::string to_string(const Ktubu &u) {
         std::string ext0_str = u.ext0.has_value() ? "    " + to_string(u.ext0.value()) : "";

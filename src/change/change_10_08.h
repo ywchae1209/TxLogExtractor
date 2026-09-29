@@ -10,16 +10,13 @@
 #include "../coral_combinator.h"
 #include "../coral_decode.h"
 
-
 namespace ora {
 
     using coral::decode_At, coral::Result, coral::err_of;
     using std::optional, std::nullopt, std::vector;
     using namespace combinator;
 
-    // --------------------------------------------------------------------------------
-    // Case A Header: kdxln (New Block Header )
-    // --------------------------------------------------------------------------------
+    /// 10.8 #2 Case A Header: kdxln (New Block Header )
     struct Kdxln {
         uint8_t  itl{0};   // Transaction Layer Index
         uint8_t  nco{0};   // Number of Cols
@@ -32,17 +29,18 @@ namespace ora {
         static Result<Kdxln> decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    // --------------------------------------------------------------------------------
-    // Case B Header: kdxlenxt (Split Header - 최소 4 Bytes)
-    // --------------------------------------------------------------------------------
-    struct Kdxlenxt {
-        uint32_t nxt{0};   // Offset 0: Next Leaf Block DBA
-        static Result<Kdxlenxt> decode(tcb::span<const char> buf, bool isLittle);
+    /// 10.8 #2 Case B Header: kdxlenxt (Split Header - 최소 4 Bytes)
+    struct Kdxlnext {
+        uint32_t nxt{0};   // Next Leaf Block DBA
+        static Result<Kdxlnext> decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    using KdxHead = std::variant<std::monostate,Kdxln, Kdxlenxt>;
+    using KdxHead = std::variant<std::monostate, //
+                                 Kdxln,          //
+                                 Kdxlnext        //
+                                 >;
 
-    /// {10, 8, "KDXLNE", "Index redo: init header of leaf block"}, (0x0A08 == Opcode 10.8)
+    /// {10, 8, "KDXLNE", "Index redo: init header of leaf block"}
     struct Change_1008 {
         optional<KtbVector>   ktb;        // Case A에서만 인입됨 (Case B는 empty)
         KdxHead hdr;
@@ -74,12 +72,12 @@ namespace ora {
         };
     }
 
-    inline Result<Kdxlenxt> Kdxlenxt::decode(tcb::span<const char> buf, bool isLittle) {
+    inline Result<Kdxlnext> Kdxlnext::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 4) {
             return err_of(fmt::format("[kdxlenxt] buf size ({}) < 4", buf.size()));
         }
 
-        Kdxlenxt h;
+        Kdxlnext h;
         h.nxt = decode_At<uint32_t>(buf, isLittle, 0);
         return h;
     }
@@ -89,7 +87,7 @@ namespace ora {
 
         Change_1008 out{};
 
-        // [# 1] Field 1: ktbRedo / Branch Check
+        // [# 1] Field 1: ktb / Branch Check
         auto span1 = ctx.next("Ch10_8:f1");
         if (!span1) return out;
 
@@ -111,7 +109,7 @@ namespace ora {
             // Case B: Block Being Split (# 1 == 0)
             // ------------------------------------------------------------------------
             // [# 2] kdxlenxt (4 bytes min)
-            auto o_hdr = ctx.one_of<Kdxlenxt>("Ch10_8:kdxlenxt", Kdxlenxt::decode);
+            auto o_hdr = ctx.one_of<Kdxlnext>("Ch10_8:kdxlenxt", Kdxlnext::decode);
             if (!o_hdr) return out;
             out.hdr = *o_hdr;
         }
@@ -131,5 +129,4 @@ namespace ora {
     inline std::string to_string(const Change_1008 &h) {
         return "todo";
     }
-
 }

@@ -15,17 +15,17 @@ namespace ora {
     /// 5.2 #1 * KTUDH (KTU Undo Header)
     /// - https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Ktudh
     struct Ktudh {
-        uint16_t xid_slt;  //  XID slot
+        uint16_t xid_slt;  // XID slot
         uint32_t xid_sqn;  // Xid sqn
-        uint32_t uba_dba;  //  Undo Block Address: DBA
-        uint16_t uba_sqn;  //  Undo Block Address: Sequence
-        uint8_t  uba_rec;  //  Undo Block Address: Record#
-        uint16_t flg;      //  Transaction Flag
-        uint16_t siz;      //  Size
-        uint16_t fbi;      //  FBI
-        uint16_t pxid_usn; //  Parent XID usn (when Distributed Tx)
-        uint16_t pxid_slt; //  Parent XID slt
-        uint32_t pxid_sqn; //  Parent XID sqn
+        uint32_t uba_dba;  // Undo Block Address: DBA
+        uint16_t uba_sqn;  // Undo Block Address: Sequence
+        uint8_t uba_rec;   // Undo Block Address: Record#
+        uint16_t flg;      // Transaction Flag
+        uint16_t siz;      // Size
+        uint16_t fbi;      // FBI ??
+        uint16_t pxid_usn; // Parent XID usn (when Distributed Tx)
+        uint16_t pxid_slt; // Parent XID slt
+        uint32_t pxid_sqn; // Parent XID sqn
 
         static Result<Ktudh> decode(tcb::span<const char> buf, bool isLittle) ;
     };
@@ -166,5 +166,4 @@ namespace ora {
             a.pdb ? to_string(*a.pdb) : "",
             a.eop ? to_string(*a.eop) : "");
     }
-
 }

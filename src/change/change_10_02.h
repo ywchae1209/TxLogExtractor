@@ -6,6 +6,7 @@
 #include "../coral_combinator.h"
 #include "../coral_decode.h"
 #include "../elements/layout_ktb.h"
+#include "../elements/layout_kdx.h"
 #include "tcb/span.hpp"
 #include "tl/expected.hpp"
 
@@ -15,70 +16,29 @@ namespace ora {
     using std::optional, std::nullopt;
     using namespace combinator;
 
-    /// 10.2 #2 Leaf Row Header (kdxle)
-    struct Kdxle {
-        uint8_t itl{0};                     // Offset 0
-        uint8_t code{0};                    // Offset 1 (0: SINGLE, 0x20: ARRAY)
-        uint16_t sno{0};                    // Offset 2
-        uint16_t row_size{0};               // Offset 4
-        uint16_t key_cnt{0};                // Offset 8 (if ARRAY)
-        std::vector<uint16_t> target_slots; // Offset 12 ~ (if ARRAY)
-
-        [[nodiscard]] constexpr bool is_single() const noexcept { return code == 0; }
-        [[nodiscard]] constexpr bool is_array()  const noexcept { return code == 0x20; }
-
-        static Result<Kdxle> decode(tcb::span<const char> buf, bool isLittle);
-    };
-
     /// {10, 2, "KDXLIN", "Index redo: insert leaf row"}, (0x0A02 == Opcode 10.2)
     struct Change_1002 {
         KtbVector       ktb;
         optional<Kdxle> xle;
 
         // raw
-        optional<RawFld> key_entry_data; // hold: # 3
-        optional<RawFld> slot_data;      // hold: # 4
+        optional<RawFld> key_entry_data; // # 3
+        optional<RawFld> slot_data;      // # 4
 
         // ARRAY Insert view
-        optional<vector<uint16_t>> key_entry_sizes;          // sizes#5
+        optional<vector<uint16_t>> key_entry_sizes;          // #5
         optional<vector<tcb::span<const char>>> key_entries; // from #3 (Key Payload)
         optional<vector<uint16_t>> row_slots;                // from #4 (ROWID/Sloot Data List)
 
         static Result<Change_1002> parse(SpanCursor &ctx);
     };
 
-
-    // --------------------------------------------------------------------------------
-    inline Result<Kdxle> Kdxle::decode(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < 6) return err_of(fmt::format("[kdxle] buf size ({}) < 6", buf.size()));
-
-        Kdxle h;
-        h.itl      = decode_At<uint8_t>(buf, isLittle, 0);
-        h.code     = decode_At<uint8_t>(buf, isLittle, 1);
-        h.sno      = decode_At<uint16_t>(buf, isLittle, 2);
-        h.row_size = decode_At<uint16_t>(buf, isLittle, 4);
-
-        if (h.is_array()) {
-            if (buf.size() >= 10) {
-                h.key_cnt = decode_At<uint16_t>(buf, isLittle, 8);
-            }
-            const auto req = 12 + static_cast<size_t>(h.key_cnt) * 2;
-            if (buf.size() >= req) {
-                h.target_slots.reserve(h.key_cnt);
-                for (uint16_t i = 0; i < h.key_cnt; ++i) {
-                    h.target_slots.push_back(decode_At<uint16_t>(buf, isLittle, 12 + (i * 2)));
-                }
-            }
-        }
-        return h;
-    }
-
     // --------------------------------------------------------------------------------
     inline Result<Change_1002> Change_1002::parse( SpanCursor &ctx ) {
 
         Change_1002 out;
 
-        // [# 1] Field 1: ktbRedo
+        // [# 1] Field 1: ktb
         auto ktb = ctx.one_of<KtbVector>("Ch10_2:ktb", decode_ktb);
         if (!ktb) return tl::make_unexpected(ktb.error());
         out.ktb = *ktb;

@@ -591,7 +591,7 @@ namespace ora {
     }
 
     /// see : https://github.com/bersler/OpenLogReplicator/blob/6bc92bc1b89255fbc491e3080cb12a4c1dd8e832/src/parser/OpCode.h#L1717
-    /// - todo :: may wrong decode offset
+    /// - todo :: may wrong decode offset in OLR
     inline Result<KdoCkiBody> KdoCkiBody::decode(tcb::span<const char> buf, bool isLittle) {
 
         if (buf.size() < 14)
@@ -717,7 +717,7 @@ namespace ora {
 
     inline std::string to_string(const KdoHead &h) {
         return fmt::format(
-            "DoH {{bdab: 0x{:08x}, hdba: 0x{:08x}, max_fr: {}, op: 0x{:02x}, xType: 0x{:02x}, itli: {}, ispac: {}}}",
+            "Hdr {{bdab: 0x{:08x}, hdba: 0x{:08x}, max_fr: {}, op: 0x{:02x}, xType: 0x{:02x}, itli: {}, ispac: {}}}",
             h.bdab, h.hdba, h.max_fr, h.op, h.xType, h.itli, h.ispac
         );
     }

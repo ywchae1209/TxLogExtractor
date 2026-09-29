@@ -122,8 +122,7 @@ namespace ora {
 
 
 #pragma pack(push, 1)
-    /** * 5.6 #1, 5.11 #1
-      * KTURB (KTU Rollback)
+    /** * 5.6 #1, 5.11 #1 --- KTURB (KTU Rollback)
       *
       * https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-KtubuRollbackvector
       * - Rollback 해야할 DML, Index 등의 트랜잭션 정보를 기록 (LogMiner support)
@@ -235,15 +234,13 @@ namespace ora {
             out.bdba    = decode_At<uint32_t> (buf, isLittle, 20);    // bdba
             out.slot    = decode_At<uint16_t> (buf, isLittle, 24);    // slot
         }
-
         return out;
     }
-
 
     // --------------------------------------------------------------------------------
     inline std::string to_string(const Ktusp &s) {
         return fmt::format(
-            "Ktusp{{type: 0x{:02x}, fb: 0x{:02x}, cc: {}, objv: {}, before: {}, after: {}, "
+            "USP {{type: 0x{:02x}, fb: 0x{:02x}, cc: {}, objv: {}, before: {}, after: {}, "
             "kdo_info1: 0x{:04x}, kdo_info2: 0x{:08x}, bdba: 0x{:08x}, slot: {}}}",
             s.type, s.fb, s.cc, s.objv, s.before, s.after,
             s.kdo_info1, s.kdo_info2, s.bdba, s.slot

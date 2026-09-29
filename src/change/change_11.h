@@ -6,7 +6,6 @@ namespace ora {
     using coral::Result;
     using namespace combinator;
 
-    // --------------------------------------------------------------------------------
     /// {11, 2, "KDBIRH", "Table redo: insert row header"}, (0x0B02 == Opcode 11.2)
     struct Change_1102 : Ch_Irp {
         using Ch_Irp::Ch_Irp;
@@ -17,7 +16,6 @@ namespace ora {
         }
     };
 
-    // --------------------------------------------------------------------------------
     /// {11, 3, "KDBDRH", "Table redo: delete row header"},
     struct Change_1103 : Ch_Drp {
         using Ch_Drp::Ch_Drp;
@@ -27,7 +25,6 @@ namespace ora {
         }
     };
 
-    // --------------------------------------------------------------------------------
     /// {11, 4, "KDBLKR", "Table redo: lock row"}, (0x0B04 == Opcode 11.4)
     struct Change_1104 : Ch_Lrk {
         using Ch_Lrk::Ch_Lrk;
@@ -37,7 +34,6 @@ namespace ora {
         }
     };
 
-    // --------------------------------------------------------------------------------
     /// {11, 5, "KDBNUM", "Table redo: update row piece"}, (0x0B05 == Opcode 11.5)
     struct Change_1105 : Ch_Urp {
         using Ch_Urp::Ch_Urp;
@@ -47,7 +43,6 @@ namespace ora {
         }
     };
 
-    // --------------------------------------------------------------------------------
     /// {11, 6, "KDBORP", "Table redo: overwrite row piece"}
     struct Change_1106 : Ch_Orp {
         using Ch_Orp::Ch_Orp;
@@ -57,7 +52,6 @@ namespace ora {
         }
     };
 
-    // --------------------------------------------------------------------------------
     /// {11, 7, "KDBMFC", "Table redo: manipulate first column"}, (0x0B07 == Opcode 11.7)
     struct Change_1107 : Ch_Mfc {
         using Ch_Mfc::Ch_Mfc;
@@ -67,7 +61,6 @@ namespace ora {
         }
     };
 
-    // --------------------------------------------------------------------------------
     /// {11, 8, "KDBCFA", "Table redo: change forwarding address"}, (0x0B08 == Opcode 11.8)
     struct Change_1108 : Ch_Cfa {
         using Ch_Cfa::Ch_Cfa;
@@ -87,7 +80,6 @@ namespace ora {
         }
     };
 
-    // --------------------------------------------------------------------------------
     /// {11, 12, "KDBQMD", "Table redo: quick multi-delete"}
     struct Change_1112 : Ch_Qmd {
         using Ch_Qmd::Ch_Qmd;
@@ -97,7 +89,6 @@ namespace ora {
         }
     };
 
-    // --------------------------------------------------------------------------------
     /// {11, 16, "KDOLMN", "LogMiner support RM for rowpiece with only logminer columns"},
     struct Change_1116 : Ch_Lmn {
         using Ch_Lmn::Ch_Lmn;
@@ -107,7 +98,6 @@ namespace ora {
         }
     };
 
-    // --------------------------------------------------------------------------------
     /// {11, 22, "KDBPDR", "Table redo: purge delete row"}, todo: check :: body type not-certain
     struct Change_1122 : Ch_Drp {
         using Ch_Drp::Ch_Drp;

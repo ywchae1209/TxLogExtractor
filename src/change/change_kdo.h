@@ -148,7 +148,7 @@ namespace ora {
             auto row_sizes = ctx.one_array<uint16_t>(fmt::format("{}:qmi:row_sizes", name), nrow);
             if (!row_sizes) return tl::make_unexpected(row_sizes.error());
 
-            // [# 4 ~ N] Multi-Row Data : nrow :: todo ::: dumpRows
+            // [# 4 ] Multi-Row Data : nrow :: todo ::: dumpRows
             auto raws = ctx.raws_by(fmt::format("{}:qmi:row_raws", name), *row_sizes);
             if (!raws) return tl::make_unexpected(raws.error());
 
@@ -286,5 +286,4 @@ namespace ora {
     inline std::string to_string(const Change_kdo &ckdo) {
         return std::visit([](const auto &c) { return to_string(c); }, ckdo);
     }
-
 }

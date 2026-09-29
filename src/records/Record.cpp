@@ -105,6 +105,8 @@ namespace ora {
     }
 
     void show(Record& r, uint8_t showMode, std::ostream &os) {
+        // if (r.rba.block_no < 5884090) return; // todo :: g3nie --- temp
+
         fmt::println(os,
             "R {}{} ~{:>7}.@{:<3}{} | "
             "{}",

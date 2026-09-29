@@ -7,7 +7,6 @@
 #include "tl/expected.hpp"
 #include "../coral_decode.h"
 #include "../coral_combinator.h"
-#include "../elements/layout_5.h"
 
 namespace ora {
     using coral::decode_At, coral::enough, coral::Result, coral::err_of;

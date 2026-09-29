@@ -15,6 +15,8 @@ void shows(const std::string &filename,
            const bool onlyBlock,
            const bool only1000) {
 
+    std::cerr << filename << std::endl;
+
     std::cout << filename << std::endl;
     std::cout << "*****************************************************************" << std::endl;
 

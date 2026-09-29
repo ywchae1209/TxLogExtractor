@@ -158,6 +158,7 @@ namespace ora::combinator {
         Result<uint64_t> one_scn8(std::string_view name, bool isLittle) {
             auto s = next(name);
             if (!s) return tl::make_unexpected(s.error());
+            if (s->size() < 8) return tl::make_unexpected(fmt::format("one_scn8 : {} buf size ({}) < 8", name, s->size()));
 
             return decode_ktb_scn8(*s, isLittle, 0);
         }

@@ -17,23 +17,23 @@ namespace ora {
     using std::optional, std::nullopt, std::vector, std::variant;
 
     // ----------------------------------------------------------------------------------------------------
-    enum class KdliCode : uint8_t {
-        Info       = 0x01,
-        LoadCommon = 0x02,
-        LoadData   = 0x04,
-        Zero       = 0x05,
-        Fill       = 0x06,
-        Lmap       = 0x07,
-        Lmapx      = 0x08,
-        Suplog     = 0x09,
-        Gmap       = 0x0A,
-        Fpload     = 0x0B,
-        LoadLhb    = 0x0C,
-        Almap      = 0x0D,
-        Almapx     = 0x0E,
-        LoadItree  = 0x0F,
-        Imap       = 0x10,
-        Imapx      = 0x11
+    namespace KdliCode {
+        constexpr uint8_t Info       = 0x01;     // in OLR KDLI_CODE_INFO{0x01};
+        constexpr uint8_t LoadCommon = 0x02;     // in OLR KDLI_CODE_LOAD_COMMON{0x02};
+        constexpr uint8_t LoadData   = 0x04;     // in OLR KDLI_CODE_LOAD_DATA{0x04};
+        constexpr uint8_t Zero       = 0x05;     // in OLR KDLI_CODE_ZERO{0x05};
+        constexpr uint8_t Fill       = 0x06;     // in OLR KDLI_CODE_FILL{0x06};
+        constexpr uint8_t Lmap       = 0x07;     // in OLR KDLI_CODE_LMAP{0x07};
+        constexpr uint8_t Lmapx      = 0x08;     // in OLR KDLI_CODE_LMAPX{0x08};
+        constexpr uint8_t Suplog     = 0x09;     // in OLR KDLI_CODE_SUPLOG{0x09};
+        constexpr uint8_t Gmap       = 0x0A;     // in OLR KDLI_CODE_GMAP{0x0A};
+        constexpr uint8_t Fpload     = 0x0B;     // in OLR KDLI_CODE_FPLOAD{0x0B};
+        constexpr uint8_t LoadLhb    = 0x0C;     // in OLR KDLI_CODE_LOAD_LHB{0x0C};
+        constexpr uint8_t Almap      = 0x0D;     // in OLR KDLI_CODE_ALMAP{0x0D};
+        constexpr uint8_t Almapx     = 0x0E;     // in OLR KDLI_CODE_ALMAPX{0x0E};
+        constexpr uint8_t LoadItree  = 0x0F;     // in OLR KDLI_CODE_LOAD_ITREE{0x0F};
+        constexpr uint8_t Imap       = 0x10;     // in OLR KDLI_CODE_IMAP{0x10};
+        constexpr uint8_t Imapx      = 0x11;     // in OLR KDLI_CODE_IMAPX{0x11};
     };
 
     // ====================================================================================================
@@ -45,6 +45,8 @@ namespace ora {
         uint16_t psiz{0};
         uint16_t poff{0};
         uint32_t dba{0};   // Data Block Address
+
+        static Result<KdliHead> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     // LMAP / ALMAP / IMAP -- 8Byte entry
@@ -71,6 +73,8 @@ namespace ora {
         std::array<uint8_t, 10> lob_id; // LOB 식별자 (10 Bytes)
         uint32_t block{0};              // Data Block (Big-Endian)
         uint16_t slot{0};               // Slot (Big-Endian)
+
+        static Result<KdliInfo> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x04: KDLI Load Data
@@ -83,12 +87,16 @@ namespace ora {
         uint8_t  flg2{0};
         uint8_t  flg3{0};
         uint16_t hwm{0};
+
+        static Result<KdliLoadData> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x05: KDLI Zero
     struct KdliZero {
         uint16_t zoff{0};
         uint16_t zsiz{0};
+
+        static Result<KdliZero> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x06: KDLI Fill (LOB Data Payload Chunk)
@@ -96,18 +104,24 @@ namespace ora {
         uint16_t     lob_offset{0};
         uint16_t     fill_size{0};
         vector<char> payload;
+
+        static Result<KdliFill> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x07: KDLI Lmap
     struct KdliLmap {
         uint32_t             asiz{0};
         vector<KdliMapEntry> entries;
+
+        static Result<KdliLmap> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x08: KDLI Lmapx
     struct KdliLmapx {
         uint32_t              asiz{0};
         vector<KdliMapxEntry> entries;
+
+        static Result<KdliLmapx> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x09: KDLI Suplog (Supplemental Logging Metadata)
@@ -118,6 +132,8 @@ namespace ora {
         uint32_t objn{0};
         uint16_t col_no{0};
         uint32_t flag{0};
+
+        static Result<KdliSuplog> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x0B: KDLI Fpload (Direct Load Metadata)
@@ -127,6 +143,8 @@ namespace ora {
         uint16_t xid_slot{0};
         uint32_t xid_sqn{0};
         uint32_t data_obj{0};
+
+        static Result<KdliFpload> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x0C: KDLI Load Lhb (LOB Header Block)
@@ -136,6 +154,8 @@ namespace ora {
         uint32_t dba1{0};
         uint32_t dba2{0};
         uint32_t dba3{0};
+
+        static Result<KdliLoadLhb> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x0D: KDLI Almap
@@ -143,6 +163,8 @@ namespace ora {
         uint32_t             nent{0};
         uint32_t             sidx{0};
         vector<KdliMapEntry> entries;
+
+        static Result<KdliAlmap> decode_kdli_almap(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x0F: KDLI Load Itree
@@ -158,12 +180,16 @@ namespace ora {
         uint16_t asiz{0};
         uint16_t hwm{0};
         uint32_t par{0};
+
+        static Result<KdliLoadItree> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     /// 0x10: KDLI Imap
     struct KdliImap {
         uint32_t             asiz{0};
         vector<KdliMapEntry> entries;
+
+        static Result<KdliImap> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     // fallback
@@ -191,7 +217,7 @@ namespace ora {
     >;
 
     // ====================================================================================================
-    [[nodiscard]] inline Result<KdliHead> decode_kdli_head(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliHead> KdliHead::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 12) {
             return err_of(fmt::format("[KdliCommon] buf size {} < 12", buf.size()));
         }
@@ -206,7 +232,7 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline Result<KdliInfo> decode_kdli_info(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliInfo> KdliInfo::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 17) return err_of("[KdliInfo] size < 17");
         KdliInfo out;
         std::memcpy(out.lob_id.data(), buf.data() + 1, 10);
@@ -215,7 +241,7 @@ namespace ora {
         return out;
     }
 
-    [[nodiscard]] inline Result<KdliLoadData> decode_kdli_load_data(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliLoadData> KdliLoadData::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 56) return err_of("[KdliLoadData] size < 56");
         KdliLoadData out;
         std::memcpy(out.lob_id.data(), buf.data() + 12, 10);
@@ -229,7 +255,7 @@ namespace ora {
         return out;
     }
 
-    [[nodiscard]] inline Result<KdliZero> decode_kdli_zero(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliZero> KdliZero::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 6) return err_of("[KdliZero] size < 6");
         return KdliZero {
             .zoff = decode_At<uint16_t>(buf, isLittle, 2),
@@ -237,7 +263,7 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline Result<KdliFill> decode_kdli_fill(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliFill> KdliFill::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 8) return err_of("[KdliFill] size < 8");
         KdliFill out;
         out.lob_offset = decode_At<uint16_t>(buf, isLittle, 2);
@@ -249,7 +275,7 @@ namespace ora {
         return out;
     }
 
-    [[nodiscard]] inline Result<KdliLmap> decode_kdli_lmap(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliLmap> KdliLmap::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 8) return err_of("[KdliLmap] size < 8");
         KdliLmap out;
         out.asiz = decode_At<uint32_t>(buf, isLittle, 4);
@@ -269,7 +295,7 @@ namespace ora {
         return out;
     }
 
-    [[nodiscard]] inline Result<KdliLmapx> decode_kdli_lmapx(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliLmapx> KdliLmapx::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 8) return err_of("[KdliLmapx] size < 8");
         KdliLmapx out;
         out.asiz = decode_At<uint32_t>(buf, isLittle, 4);
@@ -291,7 +317,7 @@ namespace ora {
         return out;
     }
 
-    [[nodiscard]] inline Result<KdliSuplog> decode_kdli_suplog(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliSuplog> KdliSuplog::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 24) return err_of("[KdliSuplog] size < 24");
         return KdliSuplog {
             .xid_usn  = decode_At<uint16_t>(buf, isLittle, 4),
@@ -303,7 +329,7 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline Result<KdliFpload> decode_kdli_fpload(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliFpload> KdliFpload::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 28) return err_of("[KdliFpload] size < 28");
         return KdliFpload {
             .bsz      = decode_At<uint32_t>(buf, isLittle, 4),
@@ -314,7 +340,7 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline Result<KdliLoadLhb> decode_kdli_load_lhb(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliLoadLhb> KdliLoadLhb::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 112) return err_of("[KdliLoadLhb] size < 112");
         KdliLoadLhb out;
         std::memcpy(out.lob_id.data(), buf.data() + 12, 10);
@@ -325,7 +351,7 @@ namespace ora {
         return out;
     }
 
-    [[nodiscard]] inline Result<KdliAlmap> decode_kdli_almap(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliAlmap> KdliAlmap::decode_kdli_almap(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 12) return err_of("[KdliAlmap] size < 12");
         KdliAlmap out;
         out.nent = decode_At<uint32_t>(buf, isLittle, 4);
@@ -346,7 +372,7 @@ namespace ora {
         return out;
     }
 
-    [[nodiscard]] inline Result<KdliLoadItree> decode_kdli_load_itree(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliLoadItree> KdliLoadItree::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 40) return err_of("[KdliLoadItree] size < 40");
         KdliLoadItree out;
         std::memcpy(out.lob_id.data(), buf.data() + 12, 10);
@@ -363,7 +389,7 @@ namespace ora {
         return out;
     }
 
-    [[nodiscard]] inline Result<KdliImap> decode_kdli_imap(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliImap> KdliImap::decode(tcb::span<const char> buf, bool isLittle) {
         if (buf.size() < 8) return err_of("[KdliImap] size < 8");
         KdliImap out;
         out.asiz = decode_At<uint32_t>(buf, isLittle, 4);
@@ -384,76 +410,33 @@ namespace ora {
     }
 
     // ----------------------------------------------------------------------------------------------------
-    [[nodiscard]] inline Result<KdliElem> decode_kdli(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KdliElem> decode_kdli(tcb::span<const char> buf, bool isLittle) {
         if (buf.empty()) {
             return err_of("[Kdli] empty buffer");
         }
 
-        const auto code = static_cast<KdliCode>(decode_At<uint8_t>(buf, isLittle, 0));
+        const auto code = decode_At<uint8_t>(buf, isLittle, 0);
+
+        auto decode_with = [&](auto decode_fn) -> Result<KdliElem> {
+            auto r = decode_fn(buf, isLittle);
+            return r ? Result<KdliElem>(*r) : tl::make_unexpected(r.error());
+        };
 
         switch (code) {
-            case KdliCode::Info: {
-                auto r = decode_kdli_info(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::LoadData: {
-                auto r = decode_kdli_load_data(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::Zero: {
-                auto r = decode_kdli_zero(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::Fill: {
-                auto r = decode_kdli_fill(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::Lmap: {
-                auto r = decode_kdli_lmap(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::Lmapx: {
-                auto r = decode_kdli_lmapx(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::Suplog: {
-                auto r = decode_kdli_suplog(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::Fpload: {
-                auto r = decode_kdli_fpload(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::LoadLhb: {
-                auto r = decode_kdli_load_lhb(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::Almap: {
-                auto r = decode_kdli_almap(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::LoadItree: {
-                auto r = decode_kdli_load_itree(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
-            case KdliCode::Imap: {
-                auto r = decode_kdli_imap(buf, isLittle);
-                if (!r) return tl::make_unexpected(r.error());
-                return *r;
-            }
+            case KdliCode::Info:      return decode_with(KdliInfo::decode);
+            case KdliCode::LoadData:  return decode_with(KdliLoadData::decode);
+            case KdliCode::Zero:      return decode_with(KdliZero::decode);
+            case KdliCode::Fill:      return decode_with(KdliFill::decode);
+            case KdliCode::Lmap:      return decode_with(KdliLmap::decode);
+            case KdliCode::Lmapx:     return decode_with(KdliLmapx::decode);
+            case KdliCode::Suplog:    return decode_with(KdliSuplog::decode);
+            case KdliCode::Fpload:    return decode_with(KdliFpload::decode);
+            case KdliCode::LoadLhb:   return decode_with(KdliLoadLhb::decode);
+            case KdliCode::Almap:     return decode_with(KdliAlmap::decode_kdli_almap);
+            case KdliCode::LoadItree: return decode_with(KdliLoadItree::decode);
+            case KdliCode::Imap:      return decode_with(KdliImap::decode);
             default:
-                return KdliRawPayload{.code = static_cast<uint8_t>(code), .raw = vector(buf.begin(), buf.end())};
+                return KdliRawPayload{.code = code, .raw = vector(buf.begin(), buf.end())};
         }
     }
 

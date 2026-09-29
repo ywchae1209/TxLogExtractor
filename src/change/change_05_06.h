@@ -62,7 +62,7 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     static std::string to_string(const Ktuxvoff& a) {
-        return fmt::format("\n  XVOFF: 0x{:04x} Ktuxvflg: 0x{:04x}", a.off, a.flg);
+        return fmt::format("\n  XVOFF: 0x{:04x} xvflg: 0x{:04x}", a.off, a.flg);
     }
 
     static std::string to_string(const Change_0506& a) {

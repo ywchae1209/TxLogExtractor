@@ -10,7 +10,6 @@ namespace ora {
 
     using coral::decode_at, coral::Result, coral::err_of;
     using std::optional, std::nullopt, std::variant;
-
     using namespace combinator;
 
     /** 24.4 #1 KTMRM (Media Recovery Marker)
@@ -86,9 +85,9 @@ namespace ora {
 
     /// Type 0x0C (Transaction Finalized)
     struct FinalizedTx {
-        Kttxs txs;                    // # 2: Transaction State Vector (4 Bytes)
-        RawFld unknown;                 // # 3: Unknown / Padding (4 Bytes)
-        optional<uint64_t> tx_start_scn;// # 4: TxStartScn (8 Bytes SCN)
+        Kttxs txs;                       // # 2: Transaction State Vector (4 Bytes)
+        RawFld unknown;                  // # 3: Unknown / Padding (4 Bytes)
+        optional<uint64_t> tx_start_scn; // # 4: TxStartScn (8 Bytes SCN)
     };
 
     // fallback
@@ -96,11 +95,11 @@ namespace ora {
         RawFlds raws;
     };
 
-    using MrmBody = variant<            //
-            PseudoTx,                   // Type 0x06 / 0x07 (Pseudo Transaction)
-            FinalizedTx,                // Type 0x0C (Transaction Finalized)
-            MinActiveTx,                // Type 0x0E (Min Active Transaction)
-            Unknown// fallback
+    using MrmBody = variant< //
+            PseudoTx,        // Type 0x06 / 0x07 (Pseudo Transaction)
+            FinalizedTx,     // Type 0x0C (Transaction Finalized)
+            MinActiveTx,     // Type 0x0E (Min Active Transaction)
+            Unknown          // fallback
             >;
 
     // --------------------------------------------------------------------------------
@@ -108,7 +107,6 @@ namespace ora {
     struct Change_2404 {
         Ktmrm marker; // # 1: Recovery Marker Header (16 Bytes, 필수)
         MrmBody body; // # 2~
-
 
         static Result<Change_2404> parse(SpanCursor &ctx);
     };
@@ -220,13 +218,11 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     static std::string to_string(const Ktmrm& a) {
-        return fmt::format("MRM: xid: 0x{:x}.0x{:x}.{} type: 0x{:02x}",
-                           a.xid_usn, a.xid_slot, a.xid_sqn, a.type);
+        return fmt::format("MRM: xid: 0x{:x}.0x{:x}.{} type: 0x{:02x}", a.xid_usn, a.xid_slot, a.xid_sqn, a.type);
     }
 
     static std::string to_string(const Ktptx& a) {
-        return fmt::format("PTX: "
-                           "objn: {} objv: {} "
+        return fmt::format("PTX: objn: {} objv: {} "
                            "pseudo_xid: 0x{:x}.0x{:x}.{} "
                            "parent_xid: 0x{:x}.0x{:x}.{}",
                            a.objn, a.objv,
@@ -234,9 +230,7 @@ namespace ora {
                            a.parent_xid_usn, a.parent_xid_slot, a.parent_xid_sqn);
     }
     static std::string to_string(const Kttxs& a) {
-        return fmt::format("TXS: "
-                           "outcome: {} old_state: {} new_state: {}",
-                           a.outcome, a.old_state, a.new_state);
+        return fmt::format("TXS: outcome: {} old_state: {} new_state: {}", a.outcome, a.old_state, a.new_state);
     }
     static std::string to_string(const PseudoTx& a) { return to_string(a.ptxh); }
 
@@ -254,10 +248,8 @@ namespace ora {
 
     static std::string to_string(const Unknown& a) { return to_string(a.raws); }
 
-    static std::string to_string(const MrmBody& body) {
-        return std::visit(
-            [](const auto& arg) { return to_string(arg); },
-            body);
+    static std::string to_string(const MrmBody &body) {
+        return std::visit([](const auto &arg) { return to_string(arg); }, body);
     }
 
     static std::string to_string(const Change_2404& a) {

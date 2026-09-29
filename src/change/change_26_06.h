@@ -3,7 +3,7 @@
 #include <vector>
 #include "../coral_combinator.h"
 #include "../coral_decode.h"
-#include "../elements/layout_kdli.h"
+#include "../elements/layout_kdl.h"
 #include "tl/expected.hpp"
 
 namespace ora {
@@ -38,7 +38,7 @@ namespace ora {
         out.objd = decode_At<uint32_t>(*span2, ctx.isLittle, 24);
 
         // [# 3] KdliHead
-        auto head = ctx.one_of<KdliHead>("Ch26_6:head", decode_kdli_head);
+        auto head = ctx.one_of<KdliHead>("Ch26_6:head", KdliHead::decode);
         if (!head) return tl::make_unexpected(head.error());
         out.head = *head;
 

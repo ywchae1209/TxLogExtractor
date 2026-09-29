@@ -11,13 +11,12 @@
 #include "tcb/span.hpp"
 #include "tl/expected.hpp"
 
-//https://github.com/bersler/OpenLogReplicator/blob/6bc92bc1b89255fbc491e3080cb12a4c1dd8e832/src/parser/OpCode.h#L136
 namespace ora {
 
     using coral::decode_At, coral::enough, coral::Result, coral::err_of;
     using std::optional, std::vector, std::variant, std::monostate;
 
-    // --- KTB Operation Constants (from OpenLogReplicator) ---
+    // --- KTB Operation Constants (from OLR ) ---
     namespace KtbOpCode {
         constexpr uint8_t MASK           = 0x0F;
         constexpr uint8_t F              = 0x01; // Flush/Tx

@@ -9,7 +9,6 @@
 #include "../coral_decode.h"
 #include "../coral_combinator.h"
 
-/// {5, 19/20 , Audit Log},
 namespace ora {
 
     using coral::decode_At, coral::enough, coral::Result, coral::err_of;
@@ -105,7 +104,7 @@ namespace ora {
         }
 
         void set_flag(TxK key, bool cond = true) {
-            if (cond) attributes.insert_or_assign(key, "true");
+            if (cond) attributes.insert_or_assign(key, "on");
         }
 
         optional<std::string_view> get(TxK key) const noexcept {
@@ -116,7 +115,7 @@ namespace ora {
 
         bool has_flag(TxK key) const noexcept {
             auto it = attributes.find(key);
-            return (it != attributes.end() && it->second == "true");
+            return (it != attributes.end() && it->second == "on");
         }
 
         void decode_session_serial(tcb::span<const char> buf, bool isLittle, bool over19);
@@ -216,14 +215,14 @@ namespace ora {
         return "unknown";
     }
 
-   inline std::string Change_Aud::to_string(bool multiline) const{
+   inline std::string Change_Aud::to_string(const bool multiline) const{
 
         std::string out;
         out.reserve(256);
 
         for (const auto& [key, val] : attributes) {
             std::string_view key_str = to_st_view(key);
-            if (val == "true") {
+            if (val == "on") {
                 if (multiline) fmt::format_to(std::back_inserter(out), "{}\n", key_str);
                 else           fmt::format_to(std::back_inserter(out), "[{}] ", key_str);
             } else {
