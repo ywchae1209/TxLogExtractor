@@ -12,7 +12,7 @@ namespace ora {
         explicit Change_1102(Ch_Irp &&h) noexcept : Ch_Irp(std::move(h)) {}
 
         static Result<Change_1102> parse(SpanCursor &ctx) {
-            return from<Change_1102, Ch_Irp>(parse_kdop(ctx, "Ch11_2", ctx.isLittle));
+            return from<Change_1102, Ch_Irp>(parse_kdop(ctx, "Ch11_2"));
         }
     };
 
@@ -21,7 +21,7 @@ namespace ora {
         using Ch_Drp::Ch_Drp;
         explicit Change_1103(Ch_Drp &&h) noexcept : Ch_Drp(std::move(h)) {}
         static Result<Change_1103> parse(SpanCursor &ctx) {
-            return from<Change_1103, Ch_Drp>(parse_kdop(ctx, "Ch11_3", ctx.isLittle));
+            return from<Change_1103, Ch_Drp>(parse_kdop(ctx, "Ch11_3"));
         }
     };
 
@@ -30,7 +30,7 @@ namespace ora {
         using Ch_Lrk::Ch_Lrk;
         explicit Change_1104(Ch_Lrk &&h) noexcept : Ch_Lrk(std::move(h)) {}
         static Result<Change_1104> parse(SpanCursor &ctx) {
-            return from<Change_1104, Ch_Lrk>(parse_kdop(ctx, "Ch11_4", ctx.isLittle));
+            return from<Change_1104, Ch_Lrk>(parse_kdop(ctx, "Ch11_4"));
         }
     };
 
@@ -39,7 +39,7 @@ namespace ora {
         using Ch_Urp::Ch_Urp;
         explicit Change_1105(Ch_Urp &&h) noexcept : Ch_Urp(std::move(h)) {}
         static Result<Change_1105> parse(SpanCursor &ctx) {
-            return from<Change_1105, Ch_Urp>(parse_kdop(ctx, "Ch11_5", ctx.isLittle));
+            return from<Change_1105, Ch_Urp>(parse_kdop(ctx, "Ch11_5"));
         }
     };
 
@@ -48,7 +48,7 @@ namespace ora {
         using Ch_Orp::Ch_Orp;
         explicit Change_1106(Ch_Orp &&h) noexcept : Ch_Orp(std::move(h)) {}
         static Result<Change_1106> parse(SpanCursor &ctx) {
-            return from<Change_1106, Ch_Orp>(parse_kdop(ctx, "Ch11_6", ctx.isLittle));
+            return from<Change_1106, Ch_Orp>(parse_kdop(ctx, "Ch11_6"));
         }
     };
 
@@ -57,7 +57,7 @@ namespace ora {
         using Ch_Mfc::Ch_Mfc;
         explicit Change_1107(Ch_Mfc &&h) noexcept : Ch_Mfc(std::move(h)) {}
         static Result<Change_1107> parse(SpanCursor &ctx) {
-            return from<Change_1107, Ch_Mfc>(parse_kdop(ctx, "Ch11_7", ctx.isLittle));
+            return from<Change_1107, Ch_Mfc>(parse_kdop(ctx, "Ch11_7"));
         }
     };
 
@@ -66,7 +66,7 @@ namespace ora {
         using Ch_Cfa::Ch_Cfa;
         explicit Change_1108(Ch_Cfa &&h) noexcept : Ch_Cfa(std::move(h)) {}
         static Result<Change_1108> parse(SpanCursor &ctx) {
-            return from<Change_1108, Ch_Cfa>(parse_kdop(ctx, "Ch11_8", ctx.isLittle));
+            return from<Change_1108, Ch_Cfa>(parse_kdop(ctx, "Ch11_8"));
         }
     };
 
@@ -76,7 +76,7 @@ namespace ora {
         using Ch_Qmi::Ch_Qmi;
         explicit Change_1111(Ch_Qmi &&h) noexcept : Ch_Qmi(std::move(h)) {}
         static Result<Change_1111> parse(SpanCursor &ctx) {
-            return from<Change_1111, Ch_Qmi>(parse_kdop(ctx, "Ch11_11", ctx.isLittle));
+            return from<Change_1111, Ch_Qmi>(parse_kdop(ctx, "Ch11_11"));
         }
     };
 
@@ -85,7 +85,7 @@ namespace ora {
         using Ch_Qmd::Ch_Qmd;
         explicit Change_1112(Ch_Qmd &&h) noexcept : Ch_Qmd(std::move(h)) {}
         static Result<Change_1112> parse(SpanCursor &ctx) {
-            return from<Change_1112, Ch_Qmd>(parse_kdop(ctx, "Ch11_12", ctx.isLittle));
+            return from<Change_1112, Ch_Qmd>(parse_kdop(ctx, "Ch11_12"));
         }
     };
 
@@ -94,7 +94,7 @@ namespace ora {
         using Ch_Lmn::Ch_Lmn;
         explicit Change_1116(Ch_Lmn &&h) noexcept : Ch_Lmn(std::move(h)) {}
         static Result<Change_1116> parse(SpanCursor &ctx) {
-            return from<Change_1116, Ch_Lmn>(parse_kdop(ctx, "Ch11_16", ctx.isLittle));
+            return from<Change_1116, Ch_Lmn>(parse_kdop(ctx, "Ch11_16"));
         }
     };
 
@@ -103,7 +103,7 @@ namespace ora {
         using Ch_Drp::Ch_Drp;
         explicit Change_1122(Ch_Drp &&h) noexcept : Ch_Drp(std::move(h)) {}
         static Result<Change_1122> parse(SpanCursor &ctx) {
-            return from<Change_1122, Ch_Drp>(parse_kdop(ctx, "Ch11_22", ctx.isLittle));
+            return from<Change_1122, Ch_Drp>(parse_kdop(ctx, "Ch11_22"));
         }
     };
 

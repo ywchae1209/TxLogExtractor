@@ -96,14 +96,13 @@ namespace ora {
 
         // [# 1] ucm
         auto ucm = ctx.one_of<Ktucm>("Ch5_4:ucm", Ktucm::decode);
-        if (!ucm) return tl::make_unexpected(ucm.error());
-        out.ucm = std::move(*ucm);
+        if (ucm) out.ucm = std::move(*ucm);
+        else return tl::make_unexpected(ucm.error());
 
         // [# 2] ucf
         if (ucm->has_ucf() && ctx.no_remaining()) return err_of("Ch5_4: ucf flag is set, but no remaining.");
 
-        auto ucf = ctx.one_of<Ktucf>("Ch5_4:ucf", Ktucf::decode);
-        if (ucf) out.ucf = std::move(*ucf);
+        if (auto a = ctx.one_of<Ktucf>("Ch5_4:ucf", Ktucf::decode)) out.ucf = std::move(*a);
 
         return out;
     }

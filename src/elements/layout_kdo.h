@@ -228,7 +228,7 @@ namespace ora {
         uint16_t hslot;    //  fb.F && !fb.H | fb.K => pk1
         uint32_t nridBdba; //  !fb.L         | fb.K => nk
         uint16_t nridSlot; //  !fb.L         | fb.K => nk1
-        uint16_t size;     //  sizeDelta
+        uint16_t sizeDelt; //  ----
         uint16_t slot;     //  slot
         uint8_t tabn;      //
         std::vector<bool> nulls;
@@ -278,7 +278,7 @@ namespace ora {
         uint32_t dba2;     // dba2  ---- not in OLR
         uint32_t nridBdba; // !fb.L
         uint32_t nridSlot; // !fb.L
-        uint16_t size;     // sizeDelta
+        uint16_t sizeDelt; // sizeDelta
         uint16_t slot;     // slot
         uint8_t tabn;      //
 
@@ -428,7 +428,7 @@ namespace ora {
             // 10~11 :: padding
             // 18 ~ 23 :: unknown(6)          --- todo ::: find curc, comp
             // --------------------------------------------------------------------------------
-            .size       = decode_At<uint16_t>(buf, isLittle, 24),
+            .sizeDelt   = decode_At<uint16_t>(buf, isLittle, 24),
             .slot       = decode_At<uint16_t>(buf, isLittle, 26),
             .tabn       = decode_At<uint8_t >(buf, isLittle, 28),
         };
@@ -499,7 +499,7 @@ namespace ora {
             .nridBdba = decode_At<uint32_t>(buf, isLittle, 12),     // !fb.L
             .nridSlot = decode_At<uint32_t>(buf, isLittle, 16),     // !fb.L
             // 18 ~ 23 :: unknown
-            .size     = decode_At<uint16_t>(buf, isLittle, 24),     // size/delt
+            .sizeDelt = decode_At<uint16_t>(buf, isLittle, 24),     // size/delt
             .slot     = decode_At<uint16_t>(buf, isLittle, 26),     // slot
             .tabn     = decode_At<uint8_t>(buf, isLittle, 28)
         };
@@ -666,6 +666,25 @@ namespace ora {
     static constexpr bool is_lwn(const KdoBody &b) noexcept { return holds_alternative<KdoLmnBody>(b); }
     static constexpr bool is_raw(const KdoBody &b) noexcept { return holds_alternative<KdoRawBody>(b); }
 
+
+    [[nodiscard]] inline bool isCompressed(const KdoBody &body, size_t span_size) noexcept {
+
+        return std::visit(
+                [&](const auto &b) -> bool {
+                    using T = std::decay_t<decltype(b)>;
+
+                    if constexpr (std::is_same_v<T, KdoIrpBody>) {
+                        return (span_size == b.sizeDelt) && (b.cc > 1 || b.cc == 0);
+                    }
+                    if constexpr (std::is_same_v<T, KdoOrpBody>) {
+                        return (span_size == b.sizeDelt) && (b.cc > 1 || b.cc == 0);
+                    }
+
+                    return false;
+                },
+                body);
+    }
+
     [[nodiscard]] inline uint8_t get_cc(const KdoBody &body) noexcept {
 
         return std::visit(
@@ -725,7 +744,7 @@ namespace ora {
     inline std::string to_string(const KdoIrpBody &b) {
         return fmt::format(
             "Irp {{fb: 0x{:02x} ({}), lb: {}, cc: {}, cki: {}, hdba: 0x{:08x}, hslot: {}, nridBdba: 0x{:08x}, nridSlot: {}, size: {}, slot: {}, tabn: {}}}",
-            b.fb, b.fb_string(), b.lb, b.cc, b.cki, b.hdba, b.hslot, b.nridBdba, b.nridSlot, b.size, b.slot, b.tabn
+            b.fb, b.fb_string(), b.lb, b.cc, b.cki, b.hdba, b.hslot, b.nridBdba, b.nridSlot, b.sizeDelt, b.slot, b.tabn
         );
     }
 
@@ -747,7 +766,7 @@ namespace ora {
     inline std::string to_string(const KdoOrpBody &b) {
         return fmt::format(
             "Orp {{fb: 0x{:02x} ({}), lb: {}, cc: {}, cki: {}, dba2: 0x{:08x}, nridBdba: 0x{:08x}, nridSlot: {}, size: {}, slot: {}, tabn: {}}}",
-            b.fb, b.fb_string(), b.lb, b.cc, b.cki, b.dba2, b.nridBdba, b.nridSlot, b.size, b.slot, b.tabn
+            b.fb, b.fb_string(), b.lb, b.cc, b.cki, b.dba2, b.nridBdba, b.nridSlot, b.sizeDelt, b.slot, b.tabn
         );
     }
 

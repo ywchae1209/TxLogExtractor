@@ -160,10 +160,9 @@ namespace ora {
 
         Change_2404 out;
 
-        // [# 1] rmh (Media Recovery Marker)
-        auto rmh = ctx.one_of<Ktmrm>("Ch24_4:mrm", Ktmrm::decode);
-        if (!rmh) return tl::make_unexpected(rmh.error());
-        out.marker = *rmh;
+        // [# 1] Media Recovery Marker
+        if (auto m = ctx.one_of<Ktmrm>("Ch24_4:mrm", Ktmrm::decode)) out.marker = *m;
+        else return tl::make_unexpected(m.error());
 
         if (!ctx.has_remaining()) return out;
 
@@ -173,26 +172,24 @@ namespace ora {
             case 0x07: {
 
                 // [# 2] Pseudo Transaction Marker
-                auto o_ktptx = ctx.one_of<Ktptx>("Ch24_4:ktptx", Ktptx::decode);
-                if (!o_ktptx) return tl::make_unexpected(o_ktptx.error());
-                out.body = PseudoTx{ .ptxh = *o_ktptx };
+                if (auto a = ctx.one_of<Ktptx>("Ch24_4:ktptx", Ktptx::decode)) out.body = PseudoTx{.ptxh = *a};
+                else return tl::make_unexpected(a.error());
+
                 return out;
             }
 
             case 0x0C: {
                 FinalizedTx fin;
                 // [# 2] Transaction State Vector
-                auto o_kttxs = ctx.one_of<Kttxs>("Ch24_4:kttxs", Kttxs::decode);
-                if (!o_kttxs) return tl::make_unexpected(o_kttxs.error());
-                fin.txs = *o_kttxs;
+                if (auto a = ctx.one_of<Kttxs>("Ch24_4:kttxs", Kttxs::decode)) fin.txs = *a;
+                else return tl::make_unexpected(a.error());
 
                 // [# 3] Unknown
-                auto uk = ctx.one_raw("Ch24_4:Unk3");
-                if (!uk) return tl::make_unexpected(uk.error());
+                if (auto a = ctx.one_raw("Ch24_4:Unk3")) { /* unknown */ }
+                else return tl::make_unexpected(a.error());
 
                 // [# 4] TxStartScn (8 Bytes SCN, Optional)
-                auto o_scn = ctx.one_scn8("Ch24_4:TxStartScn", ctx.isLittle);
-                if (o_scn) fin.tx_start_scn = *o_scn;
+                if (auto a = ctx.one_scn8("Ch24_4:TxStartScn", ctx.isLittle)) fin.tx_start_scn = *a;
 
                 out.body = fin;
                 return out;
@@ -200,17 +197,16 @@ namespace ora {
 
             case 0x0E: {
                 // [# 2] MinActTxScn (8 Bytes SCN)
-                auto o_scn = ctx.one_scn8("Ch24_4:MinActTxScn", ctx.isLittle);
-                if (!o_scn) return tl::make_unexpected(o_scn.error());
+                if (auto a = ctx.one_scn8("Ch24_4:MinActTxScn", ctx.isLittle)) out.body = MinActiveTx{.min_act_tx_scn = *a};
+                else return tl::make_unexpected(a.error());
 
-                out.body = MinActiveTx{ .min_act_tx_scn = *o_scn };
                 return out;
             }
 
             default: {
                 // [# 2~ ] Unknowns
                 if (auto rs = ctx.rest("Ch24_4:unknown-type"))
-                    out.body = Unknown{ std::move(*rs) };
+                    out.body = Unknown{ .raws = std::move(*rs) };
                 return out;
             }
         }

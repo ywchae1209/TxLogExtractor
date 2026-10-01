@@ -20,7 +20,7 @@
        - record header's 16byte is not splited over block.
        - record size < 32MB 
    ```
-   
+# phase 1   
 ## Note 레코드 좌표찾기가 어려운 이유
 
 ### 원인 1)
@@ -64,3 +64,45 @@ Log Writing Group 정보의 불확실
 - 그러나, `LWN scn범위를 초과한 Record들`이 상당수 존재.
   ( 초과범위는 random : 1900 정도의 오차도 발견됨. )
 
+
+
+# phase 2
+
+## Left :: Todo to finish 2nd phase ( in 2-week)
+
+#### 1. TODOs 
+
+##### Done
+    - layout_5.h --- check & remove not-used code 
+    - change_10_x --- append to_string
+    - usp -- check & trim
+    - decompress <<-- dumpCompressed
+    - qmi <<--- dumpRows 
+    - check :: dumpColVector, dumpMemory, dumpRows, dumpHex
+
+#### 2. more TODO 
+
+#####  Logic
+    - MBU -- logic check
+    - decrypt
+
+##### check
+    - 24.1 -- ddl related
+
+#### 4 overall check missing parts with OLR
+
+#### 5 overall check to_string
+
+#### 6 overall re-check parsing
+
+# phase 3
+## Left :: Todo to finish 3nd phase (in 2-week)
+
+### 1. meta handing
+### 2. Tx handling
+
+# phase 4
+## Left :: Todo to finish 4nd phase (in 2-week)
+
+### 1. i/o connecting
+### 2. overall serde

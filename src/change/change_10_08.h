@@ -40,9 +40,10 @@ namespace ora {
                                  Kdxlnext        //
                                  >;
 
+
     /// {10, 8, "KDXLNE", "Index redo: init header of leaf block"}
     struct Change_1008 {
-        optional<KtbVector>   ktb;        // Case A에서만 인입됨 (Case B는 empty)
+        optional<KtbVector>   ktb;           // Case A에서만 인입됨 (Case B는 empty)
         KdxHead hdr;
 
         // Raw Payloads
@@ -54,6 +55,7 @@ namespace ora {
 
         static Result<Change_1008> parse(SpanCursor &ctx);
     };
+
 
     // --------------------------------------------------------------------------------
     inline Result<Kdxln> Kdxln::decode(tcb::span<const char> buf, bool isLittle) {
@@ -125,8 +127,37 @@ namespace ora {
 
         return out;
     }
+    // --------------------------------------------------------------------------------
 
-    inline std::string to_string(const Change_1008 &h) {
-        return "todo";
+    inline std::string to_string(const Kdxln &a) {
+        return fmt::format("KDXLN : itl: {}, nco: {}, dsz: {}, col: {}, flg: {}, nxt: {}, prv: {}",
+                           a.itl, a.nco, a.dsz, a.col, a.flg, a.nxt, a.prv);
     }
+    inline std::string to_string(const Kdxlnext &a) {
+        return fmt::format("KDXLNEXT : nxt: {}", a.nxt);
+    }
+
+    inline std::string to_string(const KdxHead &a) {
+
+        return std::visit(
+                [](auto &&x) -> std::string {
+                    using T = std::decay_t<decltype(x)>;
+                    if constexpr (std::is_same_v<T, std::monostate>) {
+                        return "KDXHDR: None";
+                    } else {
+                        return to_string(x);
+                    }
+                },
+                a);
+    }
+
+    inline std::string to_string(const Change_1008 &a) {
+
+        return fmt::format("Ch 10.8:{}{}\n  row_slots: {}, key_entry_data:{}",
+                           a.ktb ? "\n  " + to_string(*a.ktb) : "",
+                           "\n  " + to_string(a.hdr),
+                           a.row_slots ? a.row_slots->size() : 0,
+                           a.key_entry_data ? "\n  " + to_string(*a.key_entry_data): "" );
+    }
+
 }

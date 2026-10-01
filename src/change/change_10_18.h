@@ -45,8 +45,11 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    // todo :: to_string
-    inline std::string to_string(const Change_1018 &h) {
-        return "todo";
+    inline std::string to_string(const Change_1018 &a) {
+        return fmt::format("Ch 10.18:\n  {}{}{}",
+                           to_string(a.ktb),
+                           a.hdr ? "\n  " + to_string(*a.hdr) : "",
+                           a.key_entry_data ? "\n  " + to_string(*a.key_entry_data): "" );
+
     }
 }

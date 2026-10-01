@@ -1,11 +1,10 @@
 #pragma once
-#include <optional>
 #include <fmt/format.h>
+#include <optional>
+#include "../coral_combinator.h"
+#include "../coral_decode.h"
 #include "tcb/span.hpp"
 #include "tl/expected.hpp"
-#include "../coral_decode.h"
-#include "../coral_combinator.h"
-#include "../elements/layout_5.h"
 
 namespace ora {
     using coral::decode_At, coral::decode_At0, coral::Result;

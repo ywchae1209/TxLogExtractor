@@ -39,14 +39,15 @@ namespace ora {
 
         std::string codeDesc() const {
             switch (code) {
-                case Kdx_code::Restore: return "kdxlre: restore leaf row (clear delete flags)";
-                case Kdx_code::MarkDelete: return "kdxlde: mark leaf row deleted";
-                case Kdx_code::UpdateKeyData: return "kdxlup: update keydata in row";
+                case Kdx_code::Restore: return "kdxlre: restore leaf row (clear delete flags)"; // <-- 10.4 mark deleted
+                case Kdx_code::MarkDelete: return "kdxlde: mark leaf row deleted"; // <-- 10.5 restore leaf row
+                case Kdx_code::UpdateKeyData: return "kdxlup: update keydata in row"; // <-- 10.18 update keydata in row
                 case Kdx_code::Purge1:
                 case Kdx_code::Purge2:
-                    return "kdxlpu: purge leaf row";
+                    return "kdxlpu: purge leaf row";     // <-- 10.2 insert
                 default: return "unknown";
             }
+            // 35 <-- 10.35 :: leaf cleanup
         }
         static Result<Kdxlk> decode(tcb::span<const char> buf, bool isLittle);
     };
@@ -73,6 +74,7 @@ namespace ora {
         uint16_t row_size{0};  // Row/Update Payload Size
         static Result<Kdxlup> decode(const tcb::span<const char> buf, const bool isLittle);
     };
+
 
     // --------------------------------------------------------------------------------
     inline Result<Kdxlup> Kdxlup::decode( const tcb::span<const char> buf, const bool isLittle) {
@@ -128,13 +130,13 @@ namespace ora {
         if (buf.size() >= 24) {
             const auto num = decode_At<uint16_t>(buf, isLittle, 20);
             const auto need = 24 + static_cast<size_t>(num) * 2;
-            if (buf.size() < need) {
-                return err_of(fmt::format("[Kdxlk] not-enough size for {} keys (got {}, need {})",
-                                         num, buf.size(), need));
-            }
-            out.key_sizes.reserve(num);
-            for (uint16_t j = 0; j < num; ++j) {
-                out.key_sizes.push_back(decode_At<uint16_t>(buf, isLittle, 24 + j * 2));
+            if (buf.size() >= need) {
+                out.key_sizes.reserve(num);
+                for (uint16_t j = 0; j < num; ++j) {
+                    out.key_sizes.push_back(decode_At<uint16_t>(buf, isLittle, 24 + j * 2));
+                }
+            } else {
+                // In some cases keys-may-not-exist. that's ok. --- ex. 10.35 Index compress operation.
             }
         }
         return out;
@@ -153,5 +155,15 @@ namespace ora {
         }
         return result;
     }
+
+    inline std::string to_string(const Kdxlup& a) {
+        return fmt::format("KDXLUP: itl: {} sno: {} row_size: {}", a.itl, a.sno, a.row_size);
+    }
+
+    inline std::string to_string(const Kdxle& a) {
+        return fmt::format("KDXLE: itl: {} code: {} sno: {} row_size: {} key_cnt: {}, slots#: {}",
+            a.itl, a.code, a.sno, a.row_size, a.key_cnt, a.target_slots.size());
+    }
+
 
 }

@@ -72,8 +72,13 @@ namespace ora {
     }
 
     // --------------------------------------------------------------------------------
-    //  tood :: to_string
     inline std::string to_string(const Change_1002& a) {
-        return "todo";
+        return fmt::format("Ch 10.2:\n  {}{}\n  key_entry_sizes#: {}, key_entries#: {}, row_slots#: {}",
+                           to_string(a.ktb),
+                           a.xle ? "\n  " + to_string(*a.xle) : "",
+                           a.key_entry_sizes ? a.key_entry_sizes->size(): 0,
+                           a.key_entries ? a.key_entries->size(): 0,
+                           a.row_slots ? a.row_slots->size(): 0 );
     }
+
 }

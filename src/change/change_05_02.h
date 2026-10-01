@@ -11,7 +11,6 @@ namespace ora {
     using std::optional;
     using namespace combinator;
 
-    // --------------------------------------------------------------------------------
     /// 5.2 #1 * KTUDH (KTU Undo Header)
     /// - https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Ktudh
     struct Ktudh {
@@ -30,7 +29,6 @@ namespace ora {
         static Result<Ktudh> decode(tcb::span<const char> buf, bool isLittle) ;
     };
 
-    // --------------------------------------------------------------------------------
     /// 5.2 #2 KTEOP (Extent Map Redo)
     struct Kteop {
         uint32_t ext;       // Offset  4 ~ 7  : Extent Number (ext#)
@@ -51,6 +49,15 @@ namespace ora {
         uint32_t pdbid; // PDB DB id
 
         static Result<PdbInfo> decode(tcb::span<const char> buf, bool isLittle);
+    };
+
+    /// {5, 2, "KTURDH", "Update rollback segment header"},
+    struct Change_0502 {
+        Ktudh             udh; // #1  : Undo Header
+        optional<Kteop>   eop; // #2  : Extent Map Redo (optional)
+        optional<PdbInfo> pdb; // #2|3: PDB Info
+
+        static Result<Change_0502> parse(SpanCursor &ctx);
     };
 
     // --------------------------------------------------------------------------------
@@ -74,16 +81,6 @@ namespace ora {
         };
     }
 
-    /// {5, 2, "KTURDH", "Update rollback segment header"},
-    struct Change_0502 {
-        Ktudh             udh; // #1  : Undo Header
-        optional<Kteop>   eop; // #2  : Extent Map Redo (optional)
-        optional<PdbInfo> pdb; // #2|3: PDB Info
-
-        static Result<Change_0502> parse(SpanCursor &ctx);
-    };
-
-    // --------------------------------------------------------------------------------
     inline Result<PdbInfo> PdbInfo::decode(tcb::span<const char> buf, bool isLittle) {
         if (auto check = enough(buf, 4, "PDB"); !check) {
             return tl::make_unexpected(check.error());
@@ -120,15 +117,13 @@ namespace ora {
         if (const auto span2 = ctx.next("Ch5_2:pdb|eop"); span2) {
 
             if (span2->size() >= 36) {
-                auto eop2 = Kteop::decode(*span2, ctx.isLittle);
-                if (!eop2) return tl::make_unexpected(eop2.error());
-                out.eop = std::move(*eop2);
+                if (auto a = Kteop::decode(*span2, ctx.isLittle)) out.eop = std::move(*a);
+                else return tl::make_unexpected(a.error());
             }
 
             // [# 2 | 3] if left, Pdb
-            auto pdb3 = ctx.one_of<PdbInfo>("Ch5_2:pdb", PdbInfo::decode);
-            if (!pdb3) return out;
-            out.pdb = std::move(*pdb3);
+            if (auto a = ctx.one_of<PdbInfo>("Ch5_2:pdb", PdbInfo::decode)) out.pdb = std::move(*a);
+            else return out;
         }
 
         return out;

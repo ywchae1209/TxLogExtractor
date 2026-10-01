@@ -58,8 +58,7 @@ namespace ora {
 
     inline static auto get_cls_usn(const uint16_t c) noexcept {
 
-        /*
-            읽는 법 연습하기
+        /* how to read
             0x0F / 0x10	15 / 16	SYSTEM Undo Header / Block	USN 0
             0x11 / 0x12	17 / 18	Undo Header / Block	USN 1
             0x13 / 0x14	19 / 20	Undo Header / Block	USN 2

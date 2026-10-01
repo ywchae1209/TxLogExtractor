@@ -36,8 +36,8 @@ namespace ora {
         uint32_t tsn;      // Tablespace ID
         uint32_t prev_dba; // undo-dba or Prev DBA(when over19c)
         uint16_t opc;      // Opcode (Op1 << 8 | Op2)
-        uint8_t slt;       // Slot Number
-        uint8_t rci;       // Rollback Change Index
+        uint8_t slt;       // Slot Number -- Tx ID Slot ??
+        uint8_t rci;       // Rollback Change Index -- Record Chain Index ??
         uint16_t flg;      // Flags         -- read when over19c in OLR
         uint16_t wrp;      // Wrap Sequence -- read when over19c in OLR
 

@@ -17,6 +17,7 @@ namespace ora::combinator {
     using coral::Result, coral::err_of;
     using namespace combinator;
 
+
     struct RawFld {
         std::vector<char> bytes;
 
@@ -30,7 +31,6 @@ namespace ora::combinator {
     };
     struct RawFlds {
         std::vector<RawFld> elems;
-
         size_t size() const { return elems.size(); }
     };
 
@@ -96,6 +96,15 @@ namespace ora::combinator {
 
         size_t index = 0;
 
+        [[nodiscard]] Result<tcb::span<const char>> peek() const {
+            if (index >= spans.size()) {
+                return err_of(fmt::format("[ctx.peek] span index out of bounds: index ({}) >= size ({})",
+                                          index, spans.size()));
+            }
+            return spans[index];
+        }
+
+
         [[nodiscard]] Result<tcb::span<const char>> next(std::string_view name) {
             if (index >= spans.size()) {
                 return err_of(fmt::format("[{}] span index out of bounds: index ({}) >= size ({})", 
@@ -118,6 +127,7 @@ namespace ora::combinator {
         }
 
         // -------------------------------------------------------------------------------
+        /// Func == (tcb::span<uint8_t>, isLittle) -> Result<T>
         template<typename T, typename Func>
         Result<T> one_of(std::string_view name, Func &&decoder) {
             auto s = next(name);
@@ -125,6 +135,7 @@ namespace ora::combinator {
             return decoder(*s, isLittle);
         }
 
+        /// Func == (tcb::span<uint8_t>, isLittle) -> Result<T>
         template<typename T, typename Func>
         Result<T> one_of(std::string_view name, size_t min_size, Func &&decoder) {
             auto s = next(name, min_size);
@@ -132,6 +143,7 @@ namespace ora::combinator {
             return decoder(*s, isLittle);
         }
 
+        /// Func == (tcb::span<uint8_t>, isLittle) -> Result<T>
         template<typename T, typename Func>
         Result<T> one(std::string_view name, Func &&decoder) {
             auto s = next(name);
@@ -139,6 +151,33 @@ namespace ora::combinator {
             return decoder(*s);
         }
 
+        /// Func == (tcb::span<uint8_t>, isLittle) -> Result<T>
+        template<typename T, typename Func>
+        Result<std::vector<T>> one_to_vec(std::string_view name, tcb::span<uint16_t> sizes, Func&&decoder) {
+
+            Result<tcb::span<const char>> s = next(name);
+            if (!s) return tl::make_unexpected(s.error());
+
+            if (const auto need = sum(sizes); s->size() < need) {
+                return tl::make_unexpected(fmt::format("{}:one_to_vec: buf ({}) < need ({})", name, s->size(), need));
+            }
+
+            std::vector<T> out;
+            out.reserve(sizes.size());
+
+            size_t offset = 0;
+            for (const uint16_t sz : sizes) {
+                auto chunk = s->subspan(offset, sz);
+                auto elm = decoder(chunk, isLittle);
+                if (!elm) return tl::make_unexpected(elm.error());
+
+                out.push_back( *elm);
+                offset += sz;
+            }
+            return out;
+        }
+
+        /// Func == (tcb::span<uint8_t>, isLittle) -> Result<T>
         template<typename T, typename Func>
         Result<std::vector<T>> rest_of(std::string_view name, Func &&decoder) {
 
@@ -178,13 +217,46 @@ namespace ora::combinator {
             return RawFld{ std::vector(s->begin(), s->end())};
         }
 
-        // -------------------------------------------------------------------------------
-        Result<RawFlds> one_raws_by(std::string_view name, tcb::span<uint16_t> sizes) {
+        Result<RawFlds> one_as_raws(std::string_view name) {
             auto s = next(name);
             if (!s) return tl::make_unexpected(s.error());
 
-            return err_of("g3nie:: todo");
+            return RawFlds {
+                .elems = { RawFld{ std::vector(s->begin(), s->end())} }
+            };
         }
+        // -------------------------------------------------------------------------------
+        static uint16_t sum(tcb::span<uint16_t> sizes) {
+            uint16_t sum = 0;
+            for (const auto i: sizes) {
+                sum += i;
+            }
+            return sum;
+        }
+
+        Result<RawFlds> one_raws_by(std::string_view name, tcb::span<uint16_t> sizes) {
+            Result<tcb::span<const char>> s = next(name);
+            if (!s) return tl::make_unexpected(s.error());
+
+            const auto need = sum(sizes);
+            if (s->size() < need) {
+                return tl::make_unexpected(fmt::format("{}:one_raws_by: buf ({}) < need ({})", name, s->size(), need));
+            }
+
+            RawFlds result;
+            result.elems.reserve(sizes.size());
+
+            size_t offset = 0;
+            for (const uint16_t sz : sizes) {
+                auto chunk = s->subspan(offset, sz);
+                result.elems.push_back(RawFld{
+                    .bytes = std::vector(chunk.begin(), chunk.end())
+                });
+                offset += sz;
+            }
+            return result;
+        }
+
         // -------------------------------------------------------------------------------
         /// one span --> split to 'array of Int'
         template <typename T>

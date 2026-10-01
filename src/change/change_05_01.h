@@ -8,8 +8,8 @@
 #include "../elements/layout_kdl.h"
 #include "../elements/layout_kdx.h"
 #include "../elements/layout_ktubu.h"
-#include "../elements/layout_5.h"
 #include "change_kdo.h"
+#include "change_usp.h"
 #include "tcb/span.hpp"
 #include "tl/expected.hpp"
 
@@ -33,47 +33,12 @@ namespace ora {
         static Result<Ktudb> decode(tcb::span<const char> buf, bool isLittle);
     };
 
-    struct Ch_sup {
-        Ktusp spl;
-        std::vector<uint16_t> col_ids;
-        std::vector<uint16_t> col_sizes;
-        RawFlds col_raws;
-    };
+    // ================================================================================
 
-    /// todo ::: not finished
-    inline Result<Ch_sup> parse_ksup (SpanCursor &ctx, const std::string_view name, const bool isLittle) {
-
-        // [#1] Ktusp
-        auto usp = ctx.one_of<Ktusp>(name, decode_ktusp);
-        if (!usp) return tl::make_unexpected(usp.error());
-
-        const auto col_cnt = usp->cc;
-
-        // [#2] col-indices
-        auto col_ids = ctx.one_array<uint16_t>(name, col_cnt);
-        if (!col_ids) return tl::make_unexpected(col_ids.error());
-
-        // [#3] col-sizes
-        auto col_sizes = ctx.one_array<uint16_t>(name, col_cnt);
-        if (!col_sizes) return tl::make_unexpected(col_sizes.error());
-
-        // [#4~ N] col-raws
-        auto col_raws = ctx.raws_by(name, *col_sizes);
-        if (!col_raws) return tl::make_unexpected(col_raws.error());
-
-        return Ch_sup{
-            .spl = std::move(*usp),
-            .col_ids = std::move(*col_ids),
-            .col_sizes = std::move(*col_sizes),
-            .col_raws = std::move(*col_raws)
-        };
-    }
-
-    // --------------------------------------------------------------------------------
     /// KDO Undo (Before Image & Supplemental Logging)
     struct KdoUndo {
         Change_kdo       ckdo; // ktb, kdo, ...
-        optional<Ch_sup> uspl;
+        optional<Ch_Usp> uspl;
 
         static Result<KdoUndo> parse(SpanCursor &ctx);
     };
@@ -160,10 +125,10 @@ namespace ora {
 
         KdoUndo undo{};
 
-        if (auto a = parse_kdop(ctx, "0x0B01:ktb/kdo", ctx.isLittle)) undo.ckdo = std::move(*a);
+        if (auto a = parse_kdop(ctx, "0x0B01:ktb/kdo")) undo.ckdo = std::move(*a);
         else return tl::make_unexpected(a.error());
 
-        if (auto a = parse_ksup(ctx, "0x0B01:uspl", ctx.isLittle)) undo.uspl = std::move(*a);
+        if (auto a = Ch_Usp::parse(ctx, "0x0B01:uspl")) undo.uspl = std::move(*a);
 
         return undo;
     }
@@ -257,7 +222,6 @@ namespace ora {
             case 0x0A16: {
                 if (auto undo = IdxUndo::parse(ctx)) out.before = std::move(*undo);
                 else return tl::make_unexpected(undo.error());
-
                 return out;
             }
 
@@ -294,7 +258,7 @@ namespace ora {
         );
     }
 
-    inline std::string to_string(const Ch_sup &s) {
+    inline std::string to_string(const Ch_Usp &s) {
         return fmt::format(
             "Sup {{spl: {}, col_cnt: {}, col_raws_cnt: {}}}",
             to_string(s.spl), s.col_ids.size(), s.col_raws.size()

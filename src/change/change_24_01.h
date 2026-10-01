@@ -9,19 +9,30 @@ namespace ora {
     using namespace combinator;
 
     /// 24.1 # 1: DDL Identifier Header (24 Bytes)
+    /// - action : https://docs.oracle.com/cd/B14117_01/server.101/b10755/dynviews_2073.htm#g1432037
+    /// - flag : 0:Basic, 1:Chain, 4:Global-Temp-Tbl, 5:Priv-Temp-Tbl, 8:ObjMeta, 9:ColMeta, 10:ChgObj
     struct KrvDDLh {
         uint32_t ddl_version{0};  //
         uint16_t xid_usn{0};      //
         uint16_t xid_slot{0};     //
         uint32_t xid_sqn{0};      //
         uint16_t audit_action{0}; //
-        uint16_t flag{0};         // (0:Basic, 1:Chain, 4:Global-Temp-Tbl, 5:Priv-Temp-Tbl, 8:ObjMeta, 9:ColMeta, 10:ChgObj
+        uint16_t flag{0};         //
         uint16_t chain_seq{0};    // Offset 18
         uint16_t total_chains{0}; // Offset 20
+
+        /// by OLR --- ignore temp ?? --- OLR is odd in here.
+        bool is_valid() const {
+            const auto is_temp = flag == 4 || flag == 5 ||
+                                 flag == 6 || flag == 8 ||
+                                 flag == 9 || flag == 10;
+            return !is_temp;
+        }
 
         bool is_basic_or_chain() const noexcept { return flag == 0 || flag == 1; }
         bool is_chained() const noexcept { return flag == 1; }
         static Result<KrvDDLh> decode(tcb::span<const char> buf, bool isLittle);
+
     };
 
     /// {24, 1, "KRVDDL", "Common portion of DDL"},
@@ -61,7 +72,8 @@ namespace ora {
         if (!head) return tl::make_unexpected(head.error());
         out.head = std::move(*head);
 
-        // [# 2 ~ N]
+        // [# 2 ~ N] ::: todo
+        //https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Change24.1
         auto raws = ctx.rest("Ch24_4:RawPayload");
         if (!raws) return out;
         out.raws = std::move(*raws);
