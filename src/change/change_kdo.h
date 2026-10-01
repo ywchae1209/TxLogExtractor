@@ -31,6 +31,11 @@ namespace ora {
     struct Ch_Qmd : Ch_DoH { using Ch_DoH::Ch_DoH; explicit Ch_Qmd(Ch_DoH &&h) noexcept : Ch_DoH(std::move(h)) {} };
     struct Ch_Lmn : Ch_DoH { using Ch_DoH::Ch_DoH; explicit Ch_Lmn(Ch_DoH &&h) noexcept : Ch_DoH(std::move(h)) {} };
 
+    struct Ch_Cki : Ch_DoH { using Ch_DoH::Ch_DoH; explicit Ch_Cki(Ch_DoH &&h) noexcept : Ch_DoH(std::move(h)) {} };
+    struct Ch_Skl : Ch_DoH { using Ch_DoH::Ch_DoH; explicit Ch_Skl(Ch_DoH &&h) noexcept : Ch_DoH(std::move(h)) {} };
+    struct Ch_Dsc : Ch_DoH { using Ch_DoH::Ch_DoH; explicit Ch_Dsc(Ch_DoH &&h) noexcept : Ch_DoH(std::move(h)) {} };
+    struct Ch_Raw : Ch_DoH { using Ch_DoH::Ch_DoH; explicit Ch_Raw(Ch_DoH &&h) noexcept : Ch_DoH(std::move(h)) {} };
+
     // --------------------------------------------------------------------------------
     struct Ch_Drp : Ch_DoH {
         using Ch_DoH::Ch_DoH;
@@ -178,7 +183,9 @@ namespace ora {
         Ch_Lrk, Ch_Urp,
         Ch_Orp, Ch_Mfc,
         Ch_Cfa, Ch_Qmi,
-        Ch_Qmd, Ch_Lmn
+        Ch_Qmd, Ch_Lmn,
+        Ch_Cki, Ch_Skl,
+        Ch_Dsc, Ch_Raw
     >;
 
     template<typename V, typename T>
@@ -216,18 +223,17 @@ namespace ora {
 
         const auto type = get_kdoType(hdr->kdo.head.op);
 
-        // todo :: g3nie -- check missing
-        // KdoCkiBody, // 0x09 (Change Cluster key Index)
-        // KdoSklBody, // 0x0A (Set key link)
-        // KdoDscBody, // 0x0E
-        // KdoRawBody  // fallback
-
+        // todo g3nie --- check following spans
         switch (type) {
             case KdoType::Lkr: return Ch_Lrk{std::move(*hdr)};
             case KdoType::Mfc: return Ch_Mfc{std::move(*hdr)};
             case KdoType::Cfa: return Ch_Cfa{std::move(*hdr)};
             case KdoType::Qmd: return Ch_Qmd{std::move(*hdr)};
-            case KdoType::Lmn: return Ch_Lmn{std::move(*hdr)};  // todo :: check following spans
+            case KdoType::Lmn: return Ch_Lmn{std::move(*hdr)};
+
+            case KdoType::Cki: return Ch_Cki{std::move(*hdr)};
+            case KdoType::Skl: return Ch_Skl{std::move(*hdr)};
+            case KdoType::Dsc: return Ch_Dsc{std::move(*hdr)};
 
             case KdoType::Drp: {
                 if (auto o = Ch_Drp::parse(ctx, std::move(*hdr), name)) return *o;
@@ -262,12 +268,25 @@ namespace ora {
         return fmt::format("{}\n{}", to_string(a.ktb), to_string(a.kdo));
     }
 
-    static std::string to_string(const Ch_Lrk &a) { return fmt::format("Lrk:\n{}", to_string(static_cast<const Ch_DoH &>(a))); }
-    static std::string to_string(const Ch_Mfc &a) { return fmt::format("Mfc:\n{}", to_string(static_cast<const Ch_DoH &>(a))); }
-    static std::string to_string(const Ch_Cfa &a) { return fmt::format("Cfa:\n{}", to_string(static_cast<const Ch_DoH &>(a))); }
-    static std::string to_string(const Ch_Qmd &a) { return fmt::format("Qmd:\n{}", to_string(static_cast<const Ch_DoH &>(a))); }
-    static std::string to_string(const Ch_Lmn &a) { return fmt::format("Lmn:\n{}", to_string(static_cast<const Ch_DoH &>(a))); }
-    static std::string to_string(const Ch_Drp &a) { return fmt::format("Drp:\n{}", to_string(static_cast<const Ch_DoH &>(a))); }
+    inline std::string to_string(const std::string_view prefix, const Ch_DoH &a) {
+        return fmt::format("{}:\n{}\n{}", prefix, to_string(a.ktb), to_string(a.kdo));
+    }
+
+    static std::string to_string(const Ch_Lrk &a) { return to_string("Lrk:", static_cast<const Ch_DoH &>(a)); }
+    static std::string to_string(const Ch_Mfc &a) { return to_string("Mfc:", static_cast<const Ch_DoH &>(a)); }
+    static std::string to_string(const Ch_Cfa &a) { return to_string("Cfa:", static_cast<const Ch_DoH &>(a)); }
+    static std::string to_string(const Ch_Qmd &a) { return to_string("Qmd:", static_cast<const Ch_DoH &>(a)); }
+    static std::string to_string(const Ch_Lmn &a) { return to_string("Lmn:", static_cast<const Ch_DoH &>(a)); }
+    static std::string to_string(const Ch_Cki &a) { return to_string("Cki:", static_cast<const Ch_DoH &>(a)); }
+    static std::string to_string(const Ch_Skl &a) { return to_string("Skl:", static_cast<const Ch_DoH &>(a)); }
+    static std::string to_string(const Ch_Dsc &a) { return to_string("Dsc:", static_cast<const Ch_DoH &>(a)); }
+    static std::string to_string(const Ch_Raw &a) { return to_string("Raw:", static_cast<const Ch_DoH &>(a)); }
+
+    static std::string to_string(const Ch_Drp &a) {
+        return fmt::format("Drp:\n{} {}", to_string(static_cast<const Ch_DoH &>(a)),
+                           a.dscn ? fmt::format("dscn: {}", *a.dscn) : ""
+         );
+    }
 
     static std::string to_string(const Ch_Irp &a) {
         return fmt::format("Irp:\n{} {}\n  cols#: {} {}\n{}",
