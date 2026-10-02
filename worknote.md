@@ -89,6 +89,10 @@ Log Writing Group 정보의 불확실
 ##### check
     - 24.1 -- ddl related
 
+##### done
+    - kdo trailing spans, Lmn
+
+
 #### 4 overall check missing parts with OLR
 
 #### 5 overall check to_string

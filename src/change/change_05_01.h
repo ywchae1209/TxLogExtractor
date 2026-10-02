@@ -128,7 +128,10 @@ namespace ora {
         if (auto a = parse_kdop(ctx, "0x0B01:ktb/kdo")) undo.ckdo = std::move(*a);
         else return tl::make_unexpected(a.error());
 
+        if (!ctx.has_remaining()) return undo;
+
         if (auto a = Ch_Usp::parse(ctx, "0x0B01:uspl")) undo.uspl = std::move(*a);
+        else return tl::make_unexpected(a.error());
 
         return undo;
     }
@@ -218,7 +221,7 @@ namespace ora {
                 return out;
             }
 
-            // 10.22 --> Index Undo
+            // 10.22 --> Index Undo --- opc0A16
             case 0x0A16: {
                 if (auto undo = IdxUndo::parse(ctx)) out.before = std::move(*undo);
                 else return tl::make_unexpected(undo.error());
@@ -258,15 +261,8 @@ namespace ora {
         );
     }
 
-    inline std::string to_string(const Ch_Usp &s) {
-        return fmt::format(
-            "Sup {{spl: {}, col_cnt: {}, col_raws_cnt: {}}}",
-            to_string(s.spl), s.col_ids.size(), s.col_raws.size()
-        );
-    }
-
     inline std::string to_string(const KdoUndo &u) {
-        std::string uspl_str = u.uspl.has_value() ? "\n  " + to_string(u.uspl.value()) : "";
+        std::string uspl_str = u.uspl ? "\n  " + to_string(*u.uspl) : "";
         return fmt::format("{}{}", to_string(u.ckdo), uspl_str);
     }
 

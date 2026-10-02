@@ -50,7 +50,8 @@ namespace ora {
     };
 
     struct Ch_Usp {
-        Ktusp spl;
+        size_t span_count;
+        Ktusp usp;
         std::vector<uint16_t> col_ids;
         std::vector<uint16_t> col_sizes;
         RawFlds col_raws;
@@ -87,34 +88,32 @@ namespace ora {
 
     inline Result<Ch_Usp> Ch_Usp::parse (SpanCursor &ctx, const std::string_view name) {
 
-        // [#1] Ktusp
-        auto usp = ctx.one_of<Ktusp>(name, Ktusp::decode);
-        if (!usp) return tl::make_unexpected(usp.error());
+        Ch_Usp out{.span_count = ctx.remaining()};
+        if (out.span_count == 0) return out;  // empty is ok
 
-        const auto col_cnt = usp->cc;
+        // [#1] Ktusp
+        if (auto a = ctx.one_of<Ktusp>(name, Ktusp::decode)) out.usp = std::move(*a);
+        else return tl::make_unexpected(a.error());
+
+        if (out.span_count == 1) return out;
+
+        const auto col_cnt = out.usp.cc;
 
         // [#2] col-indices
-        auto col_ids = ctx.one_array<uint16_t>(name, col_cnt);
-        if (!col_ids) return tl::make_unexpected(col_ids.error());
+        if (auto a = ctx.one_array<uint16_t>("Ch_Usp:#2", col_cnt)) out.col_ids = std::move(*a);
+        else return tl::make_unexpected(a.error());
 
         // [#3] col-sizes
-        auto col_sizes = ctx.one_array<uint16_t>(name, col_cnt);
-        if (!col_sizes) return tl::make_unexpected(col_sizes.error());
+        if (auto a = ctx.one_array<uint16_t>("Ch_Usp:#3", col_cnt)) out.col_sizes = std::move(*a);
+        else return tl::make_unexpected(a.error());
 
         // [#4~ N] col-raws
-        auto col_raws = ctx.raws_by(name, *col_sizes);
-        if (!col_raws) return tl::make_unexpected(col_raws.error());
+        if (auto a = ctx.raws_by("Ch_Usp:#4", out.col_sizes)) out.col_raws = std::move(*a);
+        else return tl::make_unexpected(a.error());
 
-        return Ch_Usp{
-            .spl = std::move(*usp),
-            .col_ids = std::move(*col_ids),
-            .col_sizes = std::move(*col_sizes),
-            .col_raws = std::move(*col_raws)
-        };
+        return out;
     }
-
     // --------------------------------------------------------------------------------
-
     inline std::string to_string(const Ktusp &s) {
         return fmt::format(
             "USP {{type: 0x{:02x}, fb: 0x{:02x}, cc: {}, objv: {}, before: {}, after: {}, "
@@ -123,4 +122,19 @@ namespace ora {
             s.kdo_info1, s.kdo_info2, s.bdba, s.slot
         );
     }
+
+    inline std::string to_string(const Ch_Usp &s) {
+        if (s.span_count== 0)
+            return "SUP: Empty";
+
+        const auto msg = s.usp.cc == s.col_raws.size() ? ""  : "potential-Error";
+
+        return fmt::format(
+            "SUP: span#: {}\n    {}\n    RAWS: col#: {}, col_raws#: {} {}\n{}",
+            s.span_count, to_string(s.usp),
+            s.col_ids.size(), s.col_raws.size(), msg,
+            to_string(s.col_raws)
+        );
+    }
+
 }

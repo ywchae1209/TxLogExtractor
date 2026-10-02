@@ -365,6 +365,7 @@ namespace ora {
 
     /** KDO fallback */
     struct KdoRawBody {
+        // todo :: g3nie
         tcb::span<const char> data;
     };
 
@@ -560,6 +561,7 @@ namespace ora {
     }
 
     inline Result<KdoLmnBody> KdoLmnBody::decode(tcb::span<const char> buf, bool isLittle) {
+        // todo g3nie
         return KdoLmnBody{buf};
     }
 

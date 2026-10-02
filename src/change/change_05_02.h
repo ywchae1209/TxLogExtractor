@@ -21,7 +21,7 @@ namespace ora {
         uint8_t uba_rec;   // Undo Block Address: Record#
         uint16_t flg;      // Transaction Flag
         uint16_t siz;      // Size
-        uint16_t fbi;      // FBI ??
+        uint16_t fbi;      // free block index?? -- i'll ignore.
         uint16_t pxid_usn; // Parent XID usn (when Distributed Tx)
         uint16_t pxid_slt; // Parent XID slt
         uint32_t pxid_sqn; // Parent XID sqn
