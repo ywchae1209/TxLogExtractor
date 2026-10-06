@@ -270,7 +270,7 @@ namespace ora {
         out.fill_size  = decode_At<uint16_t>(buf, isLittle, 4);
         uint16_t flen  = decode_At<uint16_t>(buf, isLittle, 6);
         if (buf.size() >= 8 + flen) {
-            out.payload.assign(buf.begin() + 8, buf.begin() + 8 + flen);
+            out.payload.assign(buf.begin() + 8, buf.begin() + 8 + flen);    // lobData
         }
         return out;
     }

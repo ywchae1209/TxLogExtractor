@@ -16,7 +16,7 @@ namespace ora {
     using std::optional, std::nullopt, std::vector;
     using namespace combinator;
 
-    /// 10.8 #2 Case A Header: kdxln (New Block Header )
+    /// 10.8 #2 Case A Header: kdxln (New Block Header)
     struct Kdxln {
         uint8_t  itl{0};   // Transaction Layer Index
         uint8_t  nco{0};   // Number of Cols
@@ -97,7 +97,7 @@ namespace ora {
             // ------------------------------------------------------------------------
             // Case A: Newly Allocated Block (# 1 > 0)
             // ------------------------------------------------------------------------
-            auto o_ktb = decode_ktb(*span1, ctx.isLittle);
+            auto o_ktb = KtbVector::decode(*span1, ctx.isLittle);
             if (!o_ktb) return tl::make_unexpected(o_ktb.error());
             out.ktb = *o_ktb;
 
@@ -153,8 +153,8 @@ namespace ora {
 
     inline std::string to_string(const Change_1008 &a) {
 
-        return fmt::format("Ch 10.8:{}{}\n  row_slots: {}, key_entry_data:{}",
-                           a.ktb ? "\n  " + to_string(*a.ktb) : "",
+        return fmt::format("Ch 10.8:\n{}{}\n  row_slots: {}, key_entry_data:{}",
+                           a.ktb ? to_string(*a.ktb) : "",
                            "\n  " + to_string(a.hdr),
                            a.row_slots ? a.row_slots->size() : 0,
                            a.key_entry_data ? "\n  " + to_string(*a.key_entry_data): "" );

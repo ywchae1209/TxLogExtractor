@@ -249,7 +249,7 @@ namespace ora {
     }
 
     static std::string to_string(const Change_2404& a) {
-        return fmt::format("Ch 24.4:\n  {}\n  {}",
+        return fmt::format("Ch 24.4:\n  {}\n{}",
                            to_string(a.marker),
                            to_string(a.body));
     }

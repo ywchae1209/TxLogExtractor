@@ -116,6 +116,8 @@ namespace ora {
         char       op_code;       // 'C', 'Z', 'L', 'R', 'N', 'F'
         Ktb_OpData op_data;       // Sub-Op 상세 데이터
         optional<Ktb_Cleanout> cleanout;      // (ktb_op & 0x10) 인 경우
+
+        static Result<KtbVector> decode(tcb::span<const char> buf, bool isLittle);
     };
 
     inline uint64_t decode_ktb_scn8(tcb::span<const char> buf, bool isLittle, size_t offset) {
@@ -232,10 +234,10 @@ namespace ora {
         };
     }
 
-    [[nodiscard]] inline Result<KtbVector> decode_ktb(tcb::span<const char> buf, bool isLittle) {
+    inline Result<KtbVector> KtbVector::decode(tcb::span<const char> buf, bool isLittle) {
         if (auto check = enough(buf, 8, "Ktb:min"); !check) return tl::make_unexpected(check.error());
 
-        const auto op0  = decode_At<uint8_t>(buf, isLittle, 0);
+        const auto op0 = decode_At<uint8_t>(buf, isLittle, 0);
         const auto flg = decode_At<uint8_t>(buf, isLittle, 1);
 
         const auto sp  = ((flg & 0x08) == 0) ? 4 : 8;

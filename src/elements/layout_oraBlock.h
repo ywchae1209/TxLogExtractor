@@ -15,58 +15,41 @@ namespace ora {
     using coral::decode_at, coral::Result, coral::err_of;
     using std::optional, std::vector;
 
-#pragma pack(push, 1)
-    /** 19.1 #1
-     * KTBBH (Block Transaction Header)
-     *
-     * https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-BlockHeader
+    /** 19.1 #1 --- KTBBH (Block Transaction Header)
+     * - https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-BlockHeader
      * - Direct path insert / LOB 데이터를 기록
      * - Oracle Data block을 그대로 Element에 기록
      */
     struct Ktbbh {
-        uint8_t  block_type;        // (1 byte, offset 0) 1=DATA, 2=INDEX
-        uint8_t  spare1;            // (1 byte, offset 1)
-        uint8_t  spare2;            // (1 byte, offset 2)
-        uint8_t  spare3;            // (1 byte, offset 3)
-        uint32_t data_obj_id;       // (4 bytes, offset 4) Data Object ID
-        uint32_t clean_scn_base;    // (4 bytes, offset 8) Block Cleanout SCN base
-        uint16_t clean_scn_wrap;    // (2 bytes, offset 12) Block Cleanout SCN wrap
-        uint8_t  spare4;            // (1 byte, offset 14)
-        uint8_t  spare5;            // (1 byte, offset 15)
-        uint16_t itl_cnt;           // (2 bytes, offset 16) ITL count
-        uint8_t  ktbbh_flg;         // (1 byte, offset 18)
-        uint8_t  itl_free_slt;      // (1 byte, offset 19) ITL Free Slot Index
-        uint32_t dba;               // (4 bytes, offset 20) Data Block Address
+        uint8_t  block_type;        // 1:DATA, 2:INDEX, maybe~ 8/9: Lob data/index, 0x10/11: Undo hdr/data, 0x20 :secure file
+        uint32_t data_obj_id;       // Data Object ID
+        uint32_t clean_scn_base;    // Block Cleanout SCN base
+        uint16_t clean_scn_wrap;    // Block Cleanout SCN wrap
+        uint16_t itl_cnt;           // ITL count
+        uint8_t  ktbbh_flg;         //
+        uint8_t  itl_free_slt;      // ITL Free Slot Index
+        uint32_t dba;               // Data Block Address
+
+        static Result<Ktbbh> decode(tcb::span<const char> buf, bool isLittle);
+        static constexpr size_t sz_ktbbh = 24;
     };
-    static_assert(sizeof(Ktbbh) == 24, "Ktbbh size mismatch");
-#pragma pack(pop)
 
-    template<bool IsLittle>
-    inline Ktbbh decode_ktbbh0(tcb::span<const char> buf) {
-        return Ktbbh{
-            .block_type       = decode_at<uint8_t,  IsLittle>(buf, 0),
-            .spare1           = decode_at<uint8_t,  IsLittle>(buf, 1),
-            .spare2           = decode_at<uint8_t,  IsLittle>(buf, 2),
-            .spare3           = decode_at<uint8_t,  IsLittle>(buf, 3),
-            .data_obj_id      = decode_at<uint32_t, IsLittle>(buf, 4),
-            .clean_scn_base   = decode_at<uint32_t, IsLittle>(buf, 8),
-            .clean_scn_wrap   = decode_at<uint16_t, IsLittle>(buf, 12),
-            .spare4           = decode_at<uint8_t,  IsLittle>(buf, 14),
-            .spare5           = decode_at<uint8_t,  IsLittle>(buf, 15),
-            .itl_cnt          = decode_at<uint16_t, IsLittle>(buf, 16),
-            .ktbbh_flg        = decode_at<uint8_t,  IsLittle>(buf, 18),
-            .itl_free_slt     = decode_at<uint8_t,  IsLittle>(buf, 19),
-            .dba              = decode_at<uint32_t, IsLittle>(buf, 20)
-        };
-    }
 
-    [[nodiscard]] inline Result<Ktbbh> decode_ktbbh(tcb::span<const char> buf, bool isLittle) {
-        if (buf.size() < sizeof(Ktbbh)) {
-            return err_of(fmt::format("[Ktbbh] buf-size ({}) < sizeof(Ktbbh) ({})", buf.size(), sizeof(Ktbbh)));
+    inline Result<Ktbbh> Ktbbh::decode(tcb::span<const char> buf, bool isLittle) {
+        if (buf.size() < sz_ktbbh ) {
+            return err_of(fmt::format("[Ktbbh] buf ({}) < {}", buf.size(), sz_ktbbh));
         }
 
-        return isLittle ? decode_ktbbh0<true>(buf)
-                        : decode_ktbbh0<false>(buf);
+        return Ktbbh{
+            .block_type       = decode_At<uint8_t >(buf, isLittle, 0),
+            .data_obj_id      = decode_At<uint32_t>(buf, isLittle, 4),
+            .clean_scn_base   = decode_At<uint32_t>(buf, isLittle, 8),
+            .clean_scn_wrap   = decode_At<uint16_t>(buf, isLittle, 12),
+            .itl_cnt          = decode_At<uint16_t>(buf, isLittle, 16),
+            .ktbbh_flg        = decode_At<uint8_t >(buf, isLittle, 18),
+            .itl_free_slt     = decode_At<uint8_t >(buf, isLittle, 19),
+            .dba              = decode_At<uint32_t>(buf, isLittle, 20)
+        };
     }
 
 #pragma pack(push, 1)
@@ -348,6 +331,8 @@ namespace ora {
         uint8_t lock;    // (1 byte, offset 1) ITL Slot 번호 (0이면 Lock 없음)
         uint8_t cols;    // (1 byte, offset 2) 해당 Row Piece의 컬럼 개수
     };
+    constexpr size_t sz_ktrdh = 3;
+
     static_assert(sizeof(Ktrhd) == 3, "Ktrhd size mismatch");
 #pragma pack(pop)
 
@@ -361,27 +346,20 @@ namespace ora {
         vector<Kdcol> cols;
     };
 
-    template <bool IsLittle>
-    inline Ktrhd decode_ktrhd0(tcb::span<const char> buf, size_t offset) {
-        return Ktrhd{
-            .flag = decode_at<uint8_t, IsLittle>(buf, offset + 0),
-            .lock = decode_at<uint8_t, IsLittle>(buf, offset + 1),
-            .cols = decode_at<uint8_t, IsLittle>(buf, offset + 2)
-        };
-    }
-
     [[nodiscard]] inline Result<Ktrhd> decode_ktrhd(
         const tcb::span<const char> buf,
         const bool isLittle,
         const size_t offset = 0)
     {
-        if (buf.size() < offset + sizeof(Ktrhd)) {
-            return err_of(fmt::format("[Ktrhd] buf-size ({}) < offset-required ({})",
-                                      buf.size(), offset + sizeof(Ktrhd)));
+        if (buf.size() < offset + sz_ktrdh) {
+            return err_of(fmt::format("[rhd] buf-size ({}) < offset-required ({})", buf.size(), offset + sz_ktrdh ));
         }
 
-        return isLittle ? decode_ktrhd0<true>(buf, offset)
-                        : decode_ktrhd0<false>(buf, offset);
+        return Ktrhd{
+            .flag = decode_At<uint8_t>(buf, isLittle, offset + 0),
+            .lock = decode_At<uint8_t>(buf, isLittle, offset + 1),
+            .cols = decode_At<uint8_t>(buf, isLittle, offset + 2)
+        };
     }
 
     [[nodiscard]] inline Result<Kdrow> decode_kdrow(
@@ -397,7 +375,7 @@ namespace ora {
         auto rhd_res = decode_ktrhd(buf, isLittle, current);
         if (!rhd_res) return tl::make_unexpected(rhd_res.error());
 
-        current += sizeof(Ktrhd);
+        current += sz_ktrdh;
 
         Kdrow row;
         row.header = *rhd_res;
@@ -438,7 +416,7 @@ namespace ora {
     }
 
     /** Oracle Data Block */
-    struct OraBlock {
+    struct DLB_D {
         Ktbbh               header;        // Block Transaction Header
         vector<Ktb_ItlEntry>itls;          // ITL List
         Kdbh                data_header;   // Data Block Header
@@ -446,21 +424,27 @@ namespace ora {
         vector<Ktdir>       table_dirs;    // Table Directory
         vector<uint16_t>    row_dir;       // Row Directory (Row Offsets)
         vector<Kdrow>       rows;          // Rows
+
+        static bool is_data_block(tcb::span<const char> buf) {
+            return buf[0] == 0x01 && buf[1] == 0x00 && buf[2] == 0x00 && buf[3] == 0x00
+                   && ((buf[18] & 0x30) == 0x30);
+        }
     };
 
-    [[nodiscard]] inline Result<OraBlock> decode_ora_block(tcb::span<const char> buf, bool isLittle) {
+
+    [[nodiscard]] inline Result<DLB_D> decode_ora_block(tcb::span<const char> buf, bool isLittle) {
 
         size_t offset = 0;
 
         // 1. Tx header
-        const auto hd_tx = decode_ktbbh(buf, isLittle);
+        const auto hd_tx = Ktbbh::decode(buf, isLittle);
         if (!hd_tx) return tl::make_unexpected(hd_tx.error());
-        offset += sizeof(Ktbbh);
+        offset += Ktbbh::sz_ktbbh;      //24
 
         // 2. ITLs
-        const auto itls = decode_ktb_itl(buf, hd_tx->itl_cnt, isLittle, offset);
+        const auto itls = decode_ktb_itlEntry24s(buf, hd_tx->itl_cnt, isLittle, offset);
         if (!itls) return tl::make_unexpected(itls.error());
-        offset += sizeof(Ktbit) * hd_tx->itl_cnt;
+        offset += Ktb_ItlEntry::sz_itlEntry * hd_tx->itl_cnt;
 
         // 2.1 skip (optional) Bitmap
         const auto bitmap_sz = (hd_tx->ktbbh_flg > 0x10) ? 8 : 0;
@@ -507,7 +491,7 @@ namespace ora {
         }
 
         // 8. OraBlock
-        return OraBlock{
+        return DLB_D{
             .header        = *hd_tx,
             .itls          = std::move(*itls),
             .data_header   = *hd_data,

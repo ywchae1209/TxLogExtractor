@@ -6,17 +6,16 @@ namespace ora {
     using coral::Result;
     using namespace combinator;
 
-    /// {11, 2, "KDBIRH", "Table redo: insert row header"}, (0x0B02 == Opcode 11.2)
+    /// {11, 2, "KDBIRH", "Table redo: insert row header"}
     struct Change_1102 : Ch_Irp {
         using Ch_Irp::Ch_Irp;
         explicit Change_1102(Ch_Irp &&h) noexcept : Ch_Irp(std::move(h)) {}
-
         static Result<Change_1102> parse(SpanCursor &ctx) {
             return from<Change_1102, Ch_Irp>(parse_kdop(ctx, "Ch11_2"));
         }
     };
 
-    /// {11, 3, "KDBDRH", "Table redo: delete row header"},
+    /// {11, 3, "KDBDRH", "Table redo: delete row header"}
     struct Change_1103 : Ch_Drp {
         using Ch_Drp::Ch_Drp;
         explicit Change_1103(Ch_Drp &&h) noexcept : Ch_Drp(std::move(h)) {}
@@ -25,7 +24,7 @@ namespace ora {
         }
     };
 
-    /// {11, 4, "KDBLKR", "Table redo: lock row"}, (0x0B04 == Opcode 11.4)
+    /// {11, 4, "KDBLKR", "Table redo: lock row"}
     struct Change_1104 : Ch_Lrk {
         using Ch_Lrk::Ch_Lrk;
         explicit Change_1104(Ch_Lrk &&h) noexcept : Ch_Lrk(std::move(h)) {}
@@ -34,7 +33,7 @@ namespace ora {
         }
     };
 
-    /// {11, 5, "KDBNUM", "Table redo: update row piece"}, (0x0B05 == Opcode 11.5)
+    /// {11, 5, "KDBNUM", "Table redo: update row piece"}
     struct Change_1105 : Ch_Urp {
         using Ch_Urp::Ch_Urp;
         explicit Change_1105(Ch_Urp &&h) noexcept : Ch_Urp(std::move(h)) {}
@@ -52,7 +51,7 @@ namespace ora {
         }
     };
 
-    /// {11, 7, "KDBMFC", "Table redo: manipulate first column"}, (0x0B07 == Opcode 11.7)
+    /// {11, 7, "KDBMFC", "Table redo: manipulate first column"}
     struct Change_1107 : Ch_Mfc {
         using Ch_Mfc::Ch_Mfc;
         explicit Change_1107(Ch_Mfc &&h) noexcept : Ch_Mfc(std::move(h)) {}
@@ -61,7 +60,7 @@ namespace ora {
         }
     };
 
-    /// {11, 8, "KDBCFA", "Table redo: change forwarding address"}, (0x0B08 == Opcode 11.8)
+    /// {11, 8, "KDBCFA", "Table redo: change forwarding address"}
     struct Change_1108 : Ch_Cfa {
         using Ch_Cfa::Ch_Cfa;
         explicit Change_1108(Ch_Cfa &&h) noexcept : Ch_Cfa(std::move(h)) {}
@@ -71,7 +70,7 @@ namespace ora {
     };
 
     // --------------------------------------------------------------------------------
-    /// {11, 11, "KDBQMI", "Table redo: quick multi-insert"}, (0x0B0B == Opcode 11.11)
+    /// {11, 11, "KDBQMI", "Table redo: quick multi-insert"}
     struct Change_1111 : Ch_Qmi {
         using Ch_Qmi::Ch_Qmi;
         explicit Change_1111(Ch_Qmi &&h) noexcept : Ch_Qmi(std::move(h)) {}
@@ -89,7 +88,7 @@ namespace ora {
         }
     };
 
-    /// {11, 16, "KDOLMN", "LogMiner support RM for rowpiece with only logminer columns"},
+    /// {11, 16, "KDOLMN", "LogMiner support RM for row-piece with only logminer columns"},
     struct Change_1116 : Ch_Lmn {
         using Ch_Lmn::Ch_Lmn;
         explicit Change_1116(Ch_Lmn &&h) noexcept : Ch_Lmn(std::move(h)) {}
@@ -98,12 +97,12 @@ namespace ora {
         }
     };
 
-    /// {11, 22, "KDBPDR", "Table redo: purge delete row"}, todo: check :: body type not-certain
-    struct Change_1122 : Ch_Drp {
-        using Ch_Drp::Ch_Drp;
-        explicit Change_1122(Ch_Drp &&h) noexcept : Ch_Drp(std::move(h)) {}
+    /// {11, 22, "KDOCMP", "LogMiner support - compression"}
+    struct Change_1122 : Ch_Cmp {
+        using Ch_Cmp::Ch_Cmp;
+        explicit Change_1122(Ch_Cmp &&h) noexcept : Ch_Cmp(std::move(h)) {}
         static Result<Change_1122> parse(SpanCursor &ctx) {
-            return from<Change_1122, Ch_Drp>(parse_kdop(ctx, "Ch11_22"));
+            return from<Change_1122, Ch_Cmp>(parse_kdop(ctx, "Ch11_22"));
         }
     };
 
@@ -124,21 +123,21 @@ namespace ora {
         return fmt::format("Ch 11.6: {}", to_string(static_cast<const Ch_Orp &>(c)));
     }
     static std::string to_string(const Change_1107 &c) {
-        return fmt::format("Ch 11.7: {}", to_string(static_cast<const Ch_Mfc &>(c)));
+        return fmt::format("Ch 11.7: {}", to_string(static_cast<const Ch_Mfc &>(c)));  // seen : trailing span
     }
     static std::string to_string(const Change_1108 &c) {
-        return fmt::format("Ch 11.8: {}", to_string(static_cast<const Ch_Cfa &>(c)));
+        return fmt::format("Ch 11.8: {}", to_string(static_cast<const Ch_Cfa &>(c)));  // KTB may be empty
     }
     static std::string to_string(const Change_1111 &c) {
         return fmt::format("Ch 11.11: {}", to_string(static_cast<const Ch_Qmi &>(c)));
     }
     static std::string to_string(const Change_1112 &c) {
-        return fmt::format("Ch 11.12: {}", to_string(static_cast<const Ch_Qmd &>(c)));
+        return fmt::format("Ch 11.12: {}", to_string(static_cast<const Ch_Qmd &>(c))); //
     }
     static std::string to_string(const Change_1116 &c) {
         return fmt::format("Ch 11.16: {}", to_string(static_cast<const Ch_Lmn &>(c)));
     }
     static std::string to_string(const Change_1122 &c) {
-        return fmt::format("Ch 11.22: {}", to_string(static_cast<const Ch_Drp &>(c)));
+        return fmt::format("Ch 11.22: {}", to_string(static_cast<const Ch_Cmp &>(c))); // todo :: compact suppl
     }
 }

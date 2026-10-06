@@ -48,7 +48,7 @@ namespace ora {
         Ktb_xid8 xid;       // Offset  0 ~ 7  (8 Bytes: usn 2B, slt 2B, sqn 4B)
         Ktb_uba7 uba;       // Offset  8 ~ 14 (7 Bytes: dba 4B, sqn 2B, rec 1B)
         uint8_t pad;        // Offset 15      (1 Byte : spare/alignment)
-        uint16_t flags_lck; // Offset 16 ~ 17 (2 Bytes: flags & lock count)
+        uint16_t flags_lck; // Offset 16 ~ 17 (2 Bytes: flags & lock count) // KTBFTAC, KTBFUPB, KTBFIBI, KTBFCOM
         Ktb_scn6 scn_fsc;
 
         [[nodiscard]]
@@ -77,9 +77,9 @@ namespace ora {
             if (is_committed()) return std::nullopt;
             return scn_fsc.base;
         }
+        static constexpr size_t sz_itlEntry = 24;
     };
     static_assert(sizeof(Ktb_ItlEntry) == 24, "Ktb_ItlEntry size mismatch");
-
 
 
 #pragma pack(pop)
@@ -151,31 +151,29 @@ namespace ora {
     }
 
     inline Ktb_ItlEntry decode_ktb_itlEntry24(const tcb::span<const char> b,
-                                        const bool isLittle,
-                                        const size_t offset) {
+                                              const bool isLittle,
+                                              const size_t offset) {
         return isLittle
                    ? decode_ktb_itlEntry24<true>(b, offset)
                    : decode_ktb_itlEntry24<false>(b, offset);
-
     }
 
 
-    inline Result<vector<Ktb_ItlEntry> > decode_ktb_itl(const tcb::span<const char> buf,
-                                                        const bool isLittle,
-                                                        const size_t sp,
-                                                        const uint16_t itl_cnt) {
+    inline Result<vector<Ktb_ItlEntry> > decode_ktb_itlEntry24s(const tcb::span<const char> buf,
+                                                                const bool isLittle,
+                                                                const size_t offset,
+                                                                const uint16_t count) {
 
-        const auto all = sizeof(Ktb_ItlEntry) * itl_cnt;
-        if (buf.size() < sp + all) {
-            return err_of(fmt::format("[Ktb_itl] buf-size ({}) < total-required ({})",
-                                      buf.size(), sp + all));
+        const auto need = sizeof(Ktb_ItlEntry) * count;
+        if (buf.size() < offset + need) {
+            return err_of(fmt::format("[Ktb_itls] buf({}) < {} + {}(offset)", buf.size(), need, offset));
         }
 
         vector<Ktb_ItlEntry> out;
-        out.reserve(itl_cnt);
+        out.reserve(count);
 
-        for (uint16_t i = 0; i < itl_cnt; ++i) {
-            const auto cur = sp + i * sizeof(Ktb_ItlEntry);
+        for (uint16_t i = 0; i < count; ++i) {
+            const auto cur = offset + i * sizeof(Ktb_ItlEntry);
             out.push_back( decode_ktb_itlEntry24(buf, isLittle, cur));
         }
         return out;

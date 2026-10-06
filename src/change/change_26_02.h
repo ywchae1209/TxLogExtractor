@@ -29,7 +29,7 @@ namespace ora {
         Change_2602 out;
 
         // [# 1] Ktb
-        auto ktb = ctx.one_of<KtbVector>("Ch26_2:ktb", decode_ktb);
+        auto ktb = ctx.one_of<KtbVector>("Ch26_2:ktb", KtbVector::decode);
         if (!ktb) return tl::make_unexpected(ktb.error());
         out.ktb = *ktb;
 

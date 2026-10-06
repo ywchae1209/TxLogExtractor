@@ -125,12 +125,12 @@ namespace ora {
 
         KdoUndo undo{};
 
-        if (auto a = parse_kdop(ctx, "0x0B01:ktb/kdo")) undo.ckdo = std::move(*a);
+        if (auto a = parse_kdop(ctx, "KdoUndo:ktb/kdo")) undo.ckdo = std::move(*a);
         else return tl::make_unexpected(a.error());
 
         if (!ctx.has_remaining()) return undo;
 
-        if (auto a = Ch_Usp::parse(ctx, "0x0B01:uspl")) undo.uspl = std::move(*a);
+        if (auto a = Ch_Usp::parse(ctx, "KdoUndo:spl")) undo.uspl = std::move(*a);
         else return tl::make_unexpected(a.error());
 
         return undo;
@@ -141,24 +141,24 @@ namespace ora {
         IdxUndo out;
 
         // [# 1] Ktb
-        if (auto a = ctx.one_of<KtbVector>("Op0A16:ktb", decode_ktb)) out.ktb = *a;
+        if (auto a = ctx.one_of<KtbVector>("IdxUndo:ktb", KtbVector::decode)) out.ktb = *a;
         else return tl::make_unexpected(a.error());
 
         // [# 2] Kdilk
-        if (auto a = ctx.one_of<Kdxlk>("Op0A16:Kdilk", Kdxlk::decode)) out.kdi = *a;
+        if (auto a = ctx.one_of<Kdxlk>("IdxUndo:Kdilk", Kdxlk::decode)) out.kdi = *a;
         else return tl::make_unexpected(a.error());
 
         // [# 3] (Optional): indKey
-        if (auto s = ctx.next("Op0A16:indKey", 1)) out.key.assign(s->begin(), s->end()); else return out;
+        if (auto s = ctx.next("IdxUndo:indKey", 1)) out.key.assign(s->begin(), s->end()); else return out;
 
         // [# 4] (Optional): indKeyData
-        if (auto s = ctx.next("Op0A16:indKeyData", 1)) out.key_data.assign(s->begin(), s->end()); else return out;
+        if (auto s = ctx.next("IdxUndo:indKeyData", 1)) out.key_data.assign(s->begin(), s->end()); else return out;
 
         // [# 5] (Optional): selflock
-        if (auto s = ctx.next("Op0A16:selflock", 1)) out.self_lock.assign(s->begin(), s->end()); else return out;
+        if (auto s = ctx.next("IdxUndo:selflock", 1)) out.self_lock.assign(s->begin(), s->end()); else return out;
 
         // [# 6] (Optional): bitmap
-        if (auto s = ctx.next("Op0A16:bitmap, 1")) out.bitmap.assign(s->begin(), s->end());
+        if (auto s = ctx.next("IdxUndo:bitmap, 1")) out.bitmap.assign(s->begin(), s->end());
 
         return out;
     }
@@ -167,18 +167,18 @@ namespace ora {
 
         LobUndo undo{};
         // [# 1] Ktb
-        if (auto a = ctx.one_of<KtbVector>("0x1A01:ktb", decode_ktb)) undo.ktb = *a;
+        if (auto a = ctx.one_of<KtbVector>("LobUndo:ktb", KtbVector::decode)) undo.ktb = *a;
         else return tl::make_unexpected(a.error());
 
         // [# 2] KdliHead
-        if (auto a = ctx.one_of<KdliHead>("0x1A01:head", KdliHead::decode)) undo.head = *a;
+        if (auto a = ctx.one_of<KdliHead>("LobUndo:head", KdliHead::decode)) undo.head = *a;
         else return tl::make_unexpected(a.error());
 
         // [# 3] KdliElem
-        if (auto a = ctx.one_of<KdliElem>("0x1A01:elem", decode_kdli)) undo.elem = *a;
+        if (auto a = ctx.one_of<KdliElem>("LobUndo:elem", decode_kdli)) undo.elem = *a;
         else return tl::make_unexpected(a.error());
 
-        if (auto a = ctx.rest("0x1A01:rest"); a) undo.rest = std::move(*a);
+        if (auto a = ctx.rest("LobUndo:rest"); a) undo.rest = std::move(*a);
 
         return undo;
     }
@@ -192,7 +192,7 @@ namespace ora {
         if (!udb) return tl::make_unexpected(udb.error());
 
         // [# 2] ubu (Undo Block Header)
-        auto ubu = ctx.one<Ktubu>("Ch5_1:ub", [&](auto s) { return Ktubu::decode(s, ctx.isLittle, false); });
+        auto ubu = ctx.one<Ktubu>("Ch5_1:ubu", [&](auto s) { return Ktubu::decode(s, ctx.isLittle, false); });
         if (!ubu) return tl::make_unexpected(ubu.error());
 
         Change_0501 out {
@@ -200,10 +200,10 @@ namespace ora {
             .ubu = *ubu
         };
 
-        // Incomplete ctx: don't analyze further :: in OLR
-        if ((out.ubu.header.flg & (Ktub_Flag::MBU_HEAD | Ktub_Flag::MBU_TAIL | Ktub_Flag::MBU_MID)) != 0) {
-            return out;
-        }
+        // Incomplete ctx: don't analyze further :: in OLR :: todo :: g3nie check
+        // if ((out.ubu.header.flg & (Ktub_Flag::MBU_HEAD | Ktub_Flag::MBU_TAIL | Ktub_Flag::MBU_MID)) != 0) {
+        //     return out;
+        // }
 
         const uint16_t op = out.ubu.header.opc;
         switch (op) { // [# 3 ~ ]

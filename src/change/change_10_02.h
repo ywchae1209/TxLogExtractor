@@ -39,7 +39,7 @@ namespace ora {
         Change_1002 out;
 
         // [# 1] Field 1: ktb
-        auto ktb = ctx.one_of<KtbVector>("Ch10_2:ktb", decode_ktb);
+        auto ktb = ctx.one_of<KtbVector>("Ch10_2:ktb", KtbVector::decode);
         if (!ktb) return tl::make_unexpected(ktb.error());
         out.ktb = *ktb;
 
@@ -73,7 +73,7 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     inline std::string to_string(const Change_1002& a) {
-        return fmt::format("Ch 10.2:\n  {}{}\n  key_entry_sizes#: {}, key_entries#: {}, row_slots#: {}",
+        return fmt::format("Ch 10.2:\n{}{}\n  key_entry_sizes#: {}, key_entries#: {}, row_slots#: {}",
                            to_string(a.ktb),
                            a.xle ? "\n  " + to_string(*a.xle) : "",
                            a.key_entry_sizes ? a.key_entry_sizes->size(): 0,

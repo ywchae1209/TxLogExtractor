@@ -158,12 +158,20 @@ namespace ora {
     }
 
     // ----------------------------------------------------------------------------------------------------
+    inline std::string to_string(const Ktubu_base &a) {
 
-    inline std::string to_string(const Ktubu_base &b) {
-        return fmt::format(
-            "flg: 0x{:04x}, begin_tx: {}, lastSplit: {}, userDone: {}, is_temp: {}\n",
-            b.flg, (b.flg & Ktub_Flag::BEGIN_TRANS) != 0, b.is_lastSplit(), b.is_userUndoDone(), b.is_tempObject()
-        );
+        return fmt::format("slt: {} wrp: {} flg: 0x{:04x} "
+                       "prev dba:  0x{:08x} rci: {} "
+                       "opc: {}.{} "
+                       "[objn: {} objd: {} tsn: {}] {}{}{}",
+                       a.slt, a.wrp, a.flg,
+                       a.prev_dba, a.rci,
+                       a.opc >> 8, a.opc & 0xFF,
+                       a.objn, a.objd, a.tsn,
+                       a.is_mbu_head() ? "MB_H" : "",
+                       a.is_mbu_mid()  ? "MB_M" : "",
+                       a.is_mbu_tail() ? "MB_T" : ""
+                       );
     }
 
     inline std::string to_string(const Ktubu_ext &e) {

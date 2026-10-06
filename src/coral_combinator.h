@@ -104,6 +104,21 @@ namespace ora::combinator {
             return spans[index];
         }
 
+        [[nodiscard]] bool has_next() const { return index < spans.size(); }
+        [[nodiscard]] bool has_nonEmpty_next() const { return has_next() && !spans[index].empty(); }
+
+        [[nodiscard]] size_t peek_size() const {
+            return spans[index].size();
+        }
+
+        bool skip_empty_span() {
+            if (index >= spans.size()) return false;
+            if (spans[index].empty()) {
+                index++;
+                return true;
+            }
+            return false;
+        }
 
         [[nodiscard]] Result<tcb::span<const char>> next(std::string_view name) {
             if (index >= spans.size()) {

@@ -123,7 +123,7 @@ namespace ora {
         SCN      scn;                   //// ignore-wrap-high
         uint8_t  seq;                   ////
 
-        uint8_t  ctype;                 //// Change Type
+        uint8_t  ctype;                 //// Change Type      ::: 0x80 -->TYP_ENCRYPTED_TABLESPACE
 
         std::optional<uint8_t>  con_id; //// Container ID
 
@@ -154,43 +154,37 @@ namespace ora {
             SpanCursor ctx{this->length_vector.spans, isLittle};
             switch (opc) {
 
-                case 0x0501: { auto o = Change_0501::parse(ctx); show(o); break;}
-                case 0x0502: { auto o = Change_0502::parse(ctx); show(o); break;}
-                case 0x0504: { auto o = Change_0504::parse(ctx); show(o); break;}
-                case 0x0506: { auto o = Change_0506::parse(ctx); show(o); break;}
-                case 0x050B: { auto o = Change_0511::parse(ctx); show(o); break;}
-                case 0x050C: { auto o = Change_0512::parse(ctx); show(o); break;}
-                case 0x0513: { auto o = Change_0519::parse(ctx); show(o); break;}
-                case 0x0514: { auto o = Change_0520::parse(ctx); show(o); break;}
-                case 0x051E: { auto o = Change_0530::parse(ctx); show(o); break;}
-
-                case 0x0A02: { auto o = Change_1002::parse(ctx); show(o); break;}
-                case 0x0A08: { auto o = Change_1008::parse(ctx); show(o); break;}
-                case 0x0A12: { auto o = Change_1018::parse(ctx); show(o); break;}
-
-                case 0x0B02: { auto o = Change_1102::parse(ctx); show(o); break;}
-                case 0x0B03: { auto o = Change_1103::parse(ctx); show(o); break;}
-                case 0x0B04: { auto o = Change_1104::parse(ctx); show(o); break;}
-                case 0x0B05: { auto o = Change_1105::parse(ctx); show(o); break;}
-                case 0x0B06: { auto o = Change_1106::parse(ctx); show(o); break;}
-                case 0x0B07: { auto o = Change_1107::parse(ctx); show(o); break;}
-                case 0x0B08: { auto o = Change_1108::parse(ctx); show(o); break;}
-                case 0x0B0B: { auto o = Change_1111::parse(ctx); show(o); break;}
-                case 0x0B0C: { auto o = Change_1112::parse(ctx); show(o); break;}
-                case 0x0B10: { auto o = Change_1116::parse(ctx); show(o); break;}
-                case 0x0B16: { auto o = Change_1122::parse(ctx); show(o); break;}
-
-                case 0x110F: { auto o = Change_1715::parse(ctx); show(o); break;}
-                case 0x111B: { auto o = Change_1727::parse(ctx); show(o); break;}
-
-                case 0x1301: { auto o = Change_1901::parse(ctx); show(o); break;}
-
-                case 0x1801: { auto o = Change_2401::parse(ctx); show(o); break;}
-                case 0x1804: { auto o = Change_2404::parse(ctx); show(o); break;}
-                case 0x1806: { auto o = Change_2406::parse(ctx); show(o); break;}
-
-                case 0x1A02: { auto o = Change_2602::parse(ctx); show(o); break;}
-                case 0x1A06: { auto o = Change_2606::parse(ctx); show(o); break;}
+                case 0x0501: { auto o = Change_0501::parse(ctx); show(o); break;} // Undo
+                case 0x0502: { auto o = Change_0502::parse(ctx); show(o); break;} // Begin Tx
+                case 0x0504: { auto o = Change_0504::parse(ctx); show(o); break;} // Commit/Rollback Tx
+                case 0x0506: { auto o = Change_0506::parse(ctx); show(o); break;} // Partial Rollback
+                case 0x050B: { auto o = Change_0511::parse(ctx); show(o); break;} //
+                case 0x050C: { auto o = Change_0512::parse(ctx); show(o); break;} //
+                case 0x0513: { auto o = Change_0519::parse(ctx); show(o); break;} // Session info
+                case 0x0514: { auto o = Change_0520::parse(ctx); show(o); break;} // Session Info
+                case 0x051E: { auto o = Change_0530::parse(ctx); show(o); break;} //
+                case 0x0A02: { auto o = Change_1002::parse(ctx); show(o); break;} // Redo: Insert leaf row
+                case 0x0A08: { auto o = Change_1008::parse(ctx); show(o); break;} // Redo: Init header
+                case 0x0A12: { auto o = Change_1018::parse(ctx); show(o); break;} // Redo: Update key data in row
+                case 0x0B02: { auto o = Change_1102::parse(ctx); show(o); break;} // Redo: Insert row piece
+                case 0x0B03: { auto o = Change_1103::parse(ctx); show(o); break;} // Redo: Delete row piece
+                case 0x0B04: { auto o = Change_1104::parse(ctx); show(o); break;} // Redo: Lock row piece
+                case 0x0B05: { auto o = Change_1105::parse(ctx); show(o); break;} // Redo: Update row piece
+                case 0x0B06: { auto o = Change_1106::parse(ctx); show(o); break;} // Redo: Overwrite row piece
+                case 0x0B07: { auto o = Change_1107::parse(ctx); show(o); break;} // Redo: Manipulate First row
+                case 0x0B08: { auto o = Change_1108::parse(ctx); show(o); break;} // Redo: Change forwarding address
+                case 0x0B0B: { auto o = Change_1111::parse(ctx); show(o); break;} // Redo: Insert multiple rows
+                case 0x0B0C: { auto o = Change_1112::parse(ctx); show(o); break;} // Redo: Delete multiple rows
+                case 0x0B10: { auto o = Change_1116::parse(ctx); show(o); break;} // Redo: Sup. log for update
+                case 0x0B16: { auto o = Change_1122::parse(ctx); show(o); break;} // Redo: Compressed sup. log
+                case 0x110F: { auto o = Change_1715::parse(ctx); show(o); break;} //
+                case 0x111B: { auto o = Change_1727::parse(ctx); show(o); break;} //
+                case 0x1301: { auto o = Change_1901::parse(ctx); show(o); break;} // Lob
+                case 0x1801: { auto o = Change_2401::parse(ctx); show(o); break;} // DDL
+                case 0x1804: { auto o = Change_2404::parse(ctx); show(o); break;} // Undo
+                case 0x1806: { auto o = Change_2406::parse(ctx); show(o); break;} //
+                case 0x1A02: { auto o = Change_2602::parse(ctx); show(o); break;} //
+                case 0x1A06: { auto o = Change_2606::parse(ctx); show(o); break;} //
 
                 default: break;
             }

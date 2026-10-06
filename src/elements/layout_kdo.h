@@ -12,6 +12,7 @@ namespace ora {
     using coral::decode_at, coral::decode_At, coral::Result, coral::err_of;
     using std::optional;
 
+    // Irp, Orp flag
     namespace FBFlag {
         constexpr uint8_t FB_N{0x01}; // 1 << 0
         constexpr uint8_t FB_P{0x02}; // 1 << 1
@@ -23,10 +24,7 @@ namespace ora {
         constexpr uint8_t FB_K{0x80}; // 1 << 7
     }
 
-    inline bool off_FB_L(uint8_t fb) { return (FBFlag::FB_L & fb) == 0; }
-    inline bool on_FB_C(uint8_t fb) { return (FBFlag::FB_C & fb) != 0; }
-
-    static std::string FB_string(uint8_t fb) {
+    static std::string FB_string(const uint8_t fb) {
 
         char s[9]{};
 
@@ -45,33 +43,35 @@ namespace ora {
     }
 
     //--------------------------------------------------------------------------------
-    enum class KdoType : uint8_t {
-        Iur = 0x01, //----  Interpret Undo Redo
-        Irp = 0x02, // 0x23) Single Insert
-        Drp = 0x03, // 0x22) Single Delete
-        Lkr = 0x04, // Lock Row
-        Urp = 0x05, // Single Update
-        Orp = 0x06, // Overwrite Row
-        Mfc = 0x07, // Manipulate First Column
-        Cfa = 0x08, // Change Forwarding Address
-        Cki = 0x09, // Change Cluster key Index
-        Skl = 0x0A, // Set Key Links
-        Qmi = 0x0B, // Quick Multi-Insert
-        Qmd = 0x0C, // Quick Multi-Delete
-        Dsc = 0x0e, // todo ::
-        Lmn = 0x10, // Logmine r
-        LLB = 0x11, // todo ::
-        o19 = 0x13, // todo ::
-        Shk = 0x14, // todo ::
-        o21 = 0x15, // todo ::
-        Cmp = 0x16, // todo ::
-        Dcu = 0x17, // todo ::
-        Mrk = 0x18, // todo ::
-        Unknown = 0xFF,
+    // kdo.head.op
+    namespace KdoType {
+       constexpr uint8_t Iur = 0x01; // ----  Interpret Undo Redo
+       constexpr uint8_t Irp = 0x02; // Insert Row Piece
+       constexpr uint8_t Drp = 0x03; // Delete Row Piece
+       constexpr uint8_t Lkr = 0x04; // Lock Row
+       constexpr uint8_t Urp = 0x05; // Update Row Piece
+       constexpr uint8_t Orp = 0x06; // Overwrite Row Piece
+       constexpr uint8_t Mfc = 0x07; // Manipulate First Column
+       constexpr uint8_t Cfa = 0x08; // Change Forwarding Address
+       constexpr uint8_t Cki = 0x09; // Change Cluster key Index
+       constexpr uint8_t Skl = 0x0A; // Set Key Links
+       constexpr uint8_t Qmi = 0x0B; // Quick Multi-Insert
+       constexpr uint8_t Qmd = 0x0C; // Quick Multi-Delete
+       constexpr uint8_t Dsc = 0x0E; // Direct space cleanout
+       constexpr uint8_t Lmn = 0x10; // Logminer:: row piece with cols
+       constexpr uint8_t LLB = 0x11; // Logminer:: Lob id Key Information
+       constexpr uint8_t o19 = 0x13; // Logminer:: array updates
+       constexpr uint8_t Shk = 0x14; // Logminer:: shrink
+       constexpr uint8_t o21 = 0x15; // Logminer:: Urp2
+       constexpr uint8_t Cmp = 0x16; // Logminer:: compress (compact suppl)
+       constexpr uint8_t Dcu = 0x17; // Logminer:: direct commit undo
+       constexpr uint8_t Mrk = 0x18; // Logminer:: marker
+
+       constexpr uint8_t Unknown = 0xFF;
     };
 
-    inline KdoType get_kdoType(uint8_t op_code) {
-        switch (static_cast<KdoType>(op_code & 0x1F)) {    // op_code & 0x1F or & 0x3F
+    inline uint8_t get_kdoType(uint8_t op_code) {
+        switch (op_code & 0x1F) {    // op_code & 0x1F or & 0x3F
             case KdoType::Iur: return KdoType::Iur; // todo :: check 0x21
             case KdoType::Irp: return KdoType::Irp; // Single Insert (Redo: 0x02, Undo: 0x23)
             case KdoType::Drp: return KdoType::Drp; // Single Delete (Redo: 0x03, Undo: 0x22)
@@ -105,7 +105,7 @@ namespace ora {
 
     constexpr std::string_view kdoType_string(uint8_t op) {
 
-        switch (static_cast<KdoType>(op & 0x1F)) {
+        switch (op & 0x1F) {
             case KdoType::Iur: return "Iur";
             case KdoType::Irp: return "Irp"; // Single Insert (Redo: 0x02, Undo: 0x23)
             case KdoType::Drp: return "Drp"; // Single Delete (Redo: 0x03, Undo: 0x22)
@@ -132,6 +132,7 @@ namespace ora {
     }
 
     //--------------------------------------------------------------------------------
+    // kdo.head.xType
     namespace KdoXAType {
         constexpr uint8_t FLAGS_XA{0x01};
         constexpr uint8_t FLAGS_XR{0x02};
@@ -396,8 +397,8 @@ namespace ora {
     // ====================================================================================================
     /// 16 byte
     inline Result<KdoHead> KdoHead::decode(tcb::span<const char> buf, bool isLittle) {
-        if (auto sz = sizeof(KdoHead); buf.size() < sz) {
-            return err_of(fmt::format("[KdoHead] buf-size ({}) < {}", buf.size(), sz));
+        if (buf.size() < sz_KdoHead) {
+            return err_of(fmt::format("[KdoHead] buf-size ({}) < {}", buf.size(), sz_KdoHead));
         }
         return KdoHead{.bdab   = decode_At<uint32_t>(buf, isLittle, 0),
                        .hdba   = decode_At<uint32_t>(buf, isLittle, 4),
@@ -623,13 +624,14 @@ namespace ora {
         auto head = KdoHead::decode(buf, isLittle);
         if (!head) return tl::make_unexpected(head.error());
 
-        KdoVector out{.head = *head};
+        KdoVector out;
+        out.head = *head;
 
         auto rest = buf.subspan(KdoHead::sz_KdoHead);
 
         using Decoder = std::function<Result<KdoBody>(tcb::span<const char>, bool)>;
 
-        static const std::unordered_map<KdoType, Decoder> decoders = {
+        static const std::unordered_map<uint8_t, Decoder> decoders = {
             {KdoType::Irp, KdoIrpBody::decode}, {KdoType::Drp, KdoDrpBody::decode},
             {KdoType::Lkr, KdoLkrBody::decode}, {KdoType::Urp, KdoUrpBody::decode},
             {KdoType::Orp, KdoOrpBody::decode}, {KdoType::Mfc, KdoMfcBody::decode},
@@ -637,16 +639,15 @@ namespace ora {
             {KdoType::Skl, KdoSklBody::decode}, {KdoType::Qmi, KdoQmBody::decode},
             {KdoType::Qmd, KdoQmBody::decode},  {KdoType::Dsc, KdoDscBody::decode},
             {KdoType::Lmn, KdoLmnBody::decode},
-    };
+        };
 
-        auto kdoType = get_kdoType(head->op);
+        auto kdoType = get_kdoType(head->op); // todo
+        // auto kdoType = head->op; // todo
 
         auto it = decoders.find(kdoType);
         if (it != decoders.end()) {
             auto body = it->second(rest, isLittle);
-            if (!body)
-                return tl::make_unexpected(body.error());
-
+            if (!body) return tl::make_unexpected(body.error());
             out.body = *body;
         } else {
             out.body = KdoRawBody{rest};

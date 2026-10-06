@@ -8,10 +8,8 @@ namespace ora {
     using coral::Result;
     using namespace combinator;
 
-    /** 24.6 #1
-     * KTDLR (Direct Load Redo Entry)
-     *
-     * https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Directloadentry
+    /** 24.6 #1 * KTDLR (Direct Load Redo Entry)
+     * - https://lab.idatabank.com/confluence/pages/viewpage.action?pageId=119020766#Redologstructure-Directloadentry
      * - Direct load entry
      * - Direct Path Insert DML의 트랜잭션 정보를 기록
      */

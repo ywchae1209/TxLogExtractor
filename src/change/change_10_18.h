@@ -31,7 +31,7 @@ namespace ora {
         Change_1018 out;
 
         // [# 1] ktb
-        if (auto a = ctx.one_of<KtbVector>("Ch10_18:Ktb", decode_ktb)) out.ktb = *a;
+        if (auto a = ctx.one_of<KtbVector>("Ch10_18:Ktb", KtbVector::decode)) out.ktb = *a;
         else return tl::make_unexpected(a.error());
 
         // [# 2] kdxlup
@@ -46,7 +46,7 @@ namespace ora {
 
     // --------------------------------------------------------------------------------
     inline std::string to_string(const Change_1018 &a) {
-        return fmt::format("Ch 10.18:\n  {}{}{}",
+        return fmt::format("Ch 10.18:\n{}{}{}",
                            to_string(a.ktb),
                            a.hdr ? "\n  " + to_string(*a.hdr) : "",
                            a.key_entry_data ? "\n  " + to_string(*a.key_entry_data): "" );

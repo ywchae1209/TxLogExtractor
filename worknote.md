@@ -81,6 +81,8 @@ Log Writing Group 정보의 불확실
     - check :: dumpColVector, dumpMemory, dumpRows, dumpHex
 
 #### 2. more TODO 
+- 19.1
+- 11.22 (Cmp) / 5.1 
 
 #####  Logic
     - MBU -- logic check
@@ -88,10 +90,17 @@ Log Writing Group 정보의 불확실
 
 ##### check
     - 24.1 -- ddl related
+    - trailing suppl logic.
+
+    - KTB to optional ?
+    - always Supp ? 
+        - KDoUndo 
+        - IdxUndo
+        - LobUndo
+        - TxUndo
 
 ##### done
     - kdo trailing spans, Lmn
-
 
 #### 4 overall check missing parts with OLR
 
