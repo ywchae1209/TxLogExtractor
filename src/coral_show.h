@@ -3,6 +3,7 @@
 #define FMT_HEADER_ONLY 1
 #include <iostream>
 #include <sstream>
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <fmt/ostream.h>
@@ -138,5 +139,18 @@ namespace coral {
 
     inline std::string toHex(uint8_t val, const bool with_prefix = true) {
         return with_prefix ? fmt::format("0x{:02x}", val) : fmt::format("{:02x}", val);
+    }
+
+    template<typename Container, typename F>
+    std::string mkString_with(const Container &r, F &&stringify, std::string sep = ",") {
+
+        std::vector<std::string> out;
+        out.reserve(r.size());
+
+        for (const auto& elem : r) {
+            out.push_back(stringify(elem));
+        }
+
+        return fmt::format("[{}]", fmt::join(out, sep));
     }
 }
